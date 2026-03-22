@@ -357,7 +357,7 @@ function buildPrintHtml(
 }
 
 /* ────────────────────────────────────────────────────────────
-   COPY TEXT — 카카오톡 공유용 이모지 포맷
+   COPY TEXT — 메시지 공유용 이모지 포맷
 ──────────────────────────────────────────────────────────── */
 function buildCopyText(
   transcripts: ProcessedTranscript[],
@@ -409,7 +409,7 @@ function Toast({ visible }: { visible: boolean }) {
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div>
             <p className="font-bold text-sm">클립보드에 복사되었습니다</p>
-            <p className="text-xs text-white/60">카카오톡, 문자 등에 바로 붙여넣기 하세요</p>
+            <p className="text-xs text-white/60">메시지, 문자 등에 바로 붙여넣기 하세요</p>
           </div>
         </motion.div>
       )}
@@ -593,7 +593,7 @@ export function ExportModal({
                 <section>
                   <h3 className="flex items-center gap-2 text-xs font-extrabold text-muted-foreground uppercase tracking-widest mb-3">
                     <Copy className="w-3.5 h-3.5" />
-                    카카오톡 공유 미리보기
+                    메시지 공유 미리보기
                   </h3>
                   <pre className="bg-muted/60 border border-border rounded-xl px-4 py-3 text-xs text-foreground/80 leading-relaxed whitespace-pre-wrap font-sans">
                     {buildCopyText(transcripts, globalTerms, sessionStart)}
@@ -614,7 +614,7 @@ export function ExportModal({
                 >
                   <Copy className="w-4 h-4" />
                   텍스트 복사
-                  <span className="text-[10px] font-normal text-muted-foreground">(카카오톡 공유)</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">(메시지 공유)</span>
                 </button>
 
                 {/* 인쇄 버튼 */}
