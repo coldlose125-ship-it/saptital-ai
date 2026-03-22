@@ -35,7 +35,7 @@ function TermCard({ term, explanation }: MedicalTerm) {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-bold text-primary truncate">{term}</p>
-          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{explanation}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 line-clamp-4">{explanation}</p>
         </div>
       </div>
     </motion.div>

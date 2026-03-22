@@ -1,5 +1,7 @@
 const BASE = '/api';
 
+const AI_TIMEOUT_MS = 15_000;
+
 export interface MedicalTerm {
   term: string;
   explanation: string;
@@ -22,29 +24,39 @@ export interface SummarizeResult {
 }
 
 export async function analyzeText(text: string, context?: string[]): Promise<AnalyzeResult | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const res = await fetch(`${BASE}/ai/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, context }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!res.ok) return null;
     return await res.json();
   } catch {
+    clearTimeout(timeout);
     return null;
   }
 }
 
 export async function summarizeTexts(transcripts: string[]): Promise<SummarizeResult | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const res = await fetch(`${BASE}/ai/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcripts }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!res.ok) return null;
     return await res.json();
   } catch {
+    clearTimeout(timeout);
     return null;
   }
 }
@@ -56,7 +68,6 @@ export function speakText(text: string) {
 
   const doSpeak = () => {
     window.speechSynthesis.cancel();
-    // Small delay so cancel() fully clears the queue before we enqueue the new utterance
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ko-KR';
@@ -64,7 +75,6 @@ export function speakText(text: string) {
       utterance.pitch = 1.05;
       utterance.volume = 1.0;
 
-      // Prefer a native Korean voice if available
       const voices = window.speechSynthesis.getVoices();
       const koVoice =
         voices.find(v => v.lang === 'ko-KR' && v.localService) ??
@@ -76,7 +86,6 @@ export function speakText(text: string) {
     }, 80);
   };
 
-  // Voices may not be loaded on first call — wait for them
   if (_voicesLoaded || window.speechSynthesis.getVoices().length > 0) {
     _voicesLoaded = true;
     doSpeak();

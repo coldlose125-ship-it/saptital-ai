@@ -57,13 +57,17 @@ export default function Home() {
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSummarizedCountRef = useRef(_s?.transcripts?.length ?? 0);
   const sessionStartRef = useRef<Date>(_s?.sessionStart ?? new Date());
+  const sessionIdRef = useRef<number>(0);
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
   const isAiLoading = useMemo(() => transcripts.some(t => t.aiLoading), [transcripts]);
 
-  const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[]) => {
+  const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[], sessionId: number) => {
     const result = await analyzeText(text, contextTexts);
+
+    if (sessionIdRef.current !== sessionId) return;
+
     if (!result) {
       setTranscripts(prev => prev.map(t => t.id === id ? { ...t, aiLoading: false } : t));
       return;
@@ -85,6 +89,8 @@ export default function Home() {
           }
         : t
     ));
+
+    if (sessionIdRef.current !== sessionId) return;
 
     if (result.medical_terms.length > 0) {
       setGlobalTerms(prev => {
@@ -121,11 +127,12 @@ export default function Home() {
     (text, isFinal) => {
       if (isFinal) {
         const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true };
+        const currentSessionId = sessionIdRef.current;
         setTranscripts(prev => {
           const next = [...prev, processed];
           scheduleSummary(next);
           const contextTexts = prev.slice(-4).map(t => t.displayText ?? t.originalText);
-          runAIAnalysis(processed.id, text, contextTexts);
+          runAIAnalysis(processed.id, text, contextTexts, currentSessionId);
           return next;
         });
         setInterimText('');
@@ -154,6 +161,7 @@ export default function Home() {
   }, [transcripts, interimText, selectedId]);
 
   const handleClear = () => {
+    sessionIdRef.current += 1;
     setTranscripts([]);
     setInterimText('');
     setSelectedId(null);
@@ -455,16 +463,23 @@ export default function Home() {
                 </span>
               )}
             </div>
-            <p
-              aria-live="assertive"
-              aria-atomic="true"
-              aria-label={interimText ? `인식 중: ${interimText}` : `최근 발화: ${lastSpeaking || '없음'}`}
-              className={`${FONT_SIZES[fontSizeLevel]} font-bold tracking-tight leading-snug min-h-[52px] transition-colors duration-300 ${
-                interimText ? 'text-primary' : 'text-foreground/60'
-              }`}
+            <div
+              className={[
+                'overflow-y-auto scroll-smooth transition-all duration-300',
+                fontSizeLevel === 0 ? 'max-h-[96px]' : fontSizeLevel === 1 ? 'max-h-[128px]' : 'max-h-[160px]',
+              ].join(' ')}
             >
-              {interimText || lastSpeaking || (isListening ? '말씀하세요...' : '의사 선생님의 말씀이 여기에 표시됩니다')}
-            </p>
+              <p
+                aria-live="assertive"
+                aria-atomic="true"
+                aria-label={interimText ? `인식 중: ${interimText}` : `최근 발화: ${lastSpeaking || '없음'}`}
+                className={`${FONT_SIZES[fontSizeLevel]} font-bold tracking-tight leading-snug transition-colors duration-300 ${
+                  interimText ? 'text-primary' : 'text-foreground/60'
+                }`}
+              >
+                {interimText || lastSpeaking || (isListening ? '말씀하세요...' : '의사 선생님의 말씀이 여기에 표시됩니다')}
+              </p>
+            </div>
           </div>
         </div>
 
