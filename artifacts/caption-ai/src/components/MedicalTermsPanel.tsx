@@ -48,7 +48,7 @@ export function MedicalTermsPanel({ selectedBlock, globalTerms, globalKeywords, 
   const isBlockSelected = selectedBlock !== null;
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div role="complementary" aria-label="의학 용어 사전 패널" className="flex flex-col gap-4 h-full">
       {/* Header */}
       <div className="flex items-center gap-2">
         <div className="bg-primary/10 p-2 rounded-xl">
@@ -74,9 +74,13 @@ export function MedicalTermsPanel({ selectedBlock, globalTerms, globalKeywords, 
       </div>
 
       {/* Medical terms list */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-2.5 pr-0.5">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-2.5 pr-0.5"
+        aria-live="polite"
+        aria-label="의학 용어 풀이 목록"
+      >
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2">
-          <BookOpen className="w-3.5 h-3.5" />
+          <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
           의학 용어 풀이
         </div>
         <AnimatePresence mode="wait">

@@ -11,7 +11,8 @@ import { MedicalTermsPanel } from '@/components/MedicalTermsPanel';
 import { QuickReplyBar } from '@/components/QuickReplyBar';
 import { ExportModal } from '@/components/ExportModal';
 import {
-  Mic, Square, Trash2, AlertCircle, ChevronDown, Stethoscope, Activity, FileText
+  Mic, Square, Trash2, AlertCircle, ChevronDown, Stethoscope,
+  Activity, FileText, BookOpen, X, RefreshCw
 } from 'lucide-react';
 
 const FONT_SIZES = ['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl'] as const;
@@ -23,7 +24,6 @@ function loadSession() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
-    // timestamp는 ISO string → Date 복원, aiLoading은 false로 초기화
     data.transcripts = (data.transcripts ?? []).map((t: ProcessedTranscript & { timestamp: string }) => ({
       ...t,
       timestamp: new Date(t.timestamp),
@@ -36,7 +36,6 @@ function loadSession() {
   }
 }
 
-// 세션 데이터를 모듈 로드 시 1회만 읽음
 const _s = loadSession();
 
 export default function Home() {
@@ -51,6 +50,8 @@ export default function Home() {
   const [lastSpeaking, setLastSpeaking] = useState<string>(_s?.lastSpeaking ?? '');
   const [fontSizeLevel, setFontSizeLevel] = useState<0 | 1 | 2>(0);
   const [showExport, setShowExport] = useState(false);
+  const [showTermsDrawer, setShowTermsDrawer] = useState(false);
+  const [errorDismissed, setErrorDismissed] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -58,6 +59,8 @@ export default function Home() {
   const sessionStartRef = useRef<Date>(_s?.sessionStart ?? new Date());
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
+
+  const isAiLoading = transcripts.some(t => t.aiLoading);
 
   const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[]) => {
     const result = await analyzeText(text, contextTexts);
@@ -83,7 +86,6 @@ export default function Home() {
         : t
     ));
 
-    // Update global panel with latest AI data
     if (result.medical_terms.length > 0) {
       setGlobalTerms(prev => {
         const merged = [...result.medical_terms, ...prev];
@@ -135,7 +137,10 @@ export default function Home() {
     selectedDeviceId
   );
 
-  // Auto-scroll only when not selected
+  useEffect(() => {
+    if (errorMsg) setErrorDismissed(false);
+  }, [errorMsg]);
+
   useEffect(() => {
     if (!selectedId && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -156,7 +161,6 @@ export default function Home() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  // 세션 자동 저장 — 새로고침 후에도 복원
   useEffect(() => {
     if (transcripts.length === 0) return;
     try {
@@ -183,19 +187,19 @@ export default function Home() {
     keywords: selectedTranscript.aiKeywords,
   } : null;
 
+  const isMicError = errorMsg?.includes('권한') || errorMsg?.includes('not-allowed');
+
   return (
     <>
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
 
       <div className="h-screen bg-background flex flex-col font-sans overflow-hidden">
-        {/* Alert bar at top */}
         <AlertBar />
 
         {/* Header */}
-        <header className="bg-white border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+        <header role="banner" className="bg-white border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
           <div className="flex items-center gap-3">
-            {/* Logo */}
-            <div className="bg-primary p-2 rounded-xl shadow-inner">
+            <div className="bg-primary p-2 rounded-xl shadow-inner" aria-hidden="true">
               <Stethoscope className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -211,11 +215,12 @@ export default function Home() {
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Device selector */}
             <div className="relative flex items-center">
-              <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" />
+              <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" aria-hidden="true" />
               <select
                 value={selectedDeviceId}
                 onChange={e => setSelectedDeviceId(e.target.value)}
                 disabled={isListening}
+                aria-label="마이크 기기 선택"
                 className="appearance-none pl-7 pr-6 py-2 text-xs font-medium bg-secondary border border-border rounded-xl text-foreground cursor-pointer hover:bg-muted transition-colors disabled:opacity-50 max-w-[160px]"
               >
                 {devices.length === 0
@@ -223,24 +228,35 @@ export default function Home() {
                   : devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label}</option>)
                 }
               </select>
-              <ChevronDown className="absolute right-1.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <ChevronDown className="absolute right-1.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
             </div>
 
             {/* Recording status */}
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2.5 w-2.5">
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label={`녹음 상태: ${status}`}
+              className="flex items-center gap-1.5"
+            >
+              <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
                 {isListening && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isListening ? 'bg-red-500' : 'bg-gray-300'}`} />
               </span>
               <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">{status}</span>
             </div>
 
-            {/* ── 글자 크기 조절 ── */}
-            <div className="flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5" title="자막 글자 크기">
+            {/* 글자 크기 조절 */}
+            <div
+              role="group"
+              aria-label="자막 글자 크기 선택"
+              className="flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5"
+            >
               {([0, 1, 2] as const).map(level => (
                 <button
                   key={level}
                   onClick={() => setFontSizeLevel(level)}
+                  aria-label={`글자 크기 ${FONT_LABELS[level]}`}
+                  aria-pressed={fontSizeLevel === level}
                   className={`px-2 py-1.5 rounded-lg text-xs font-extrabold transition-all leading-none ${
                     fontSizeLevel === level
                       ? 'bg-primary text-white shadow'
@@ -253,14 +269,14 @@ export default function Home() {
               ))}
             </div>
 
-            {/* ── 진료 기록 내보내기 ── */}
+            {/* 진료 기록 내보내기 */}
             {transcripts.length > 0 && (
               <button
                 onClick={() => setShowExport(true)}
+                aria-label="오늘의 진료 기록 저장 및 내보내기"
                 className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl font-bold text-xs transition-colors"
-                title="오늘의 진료 기록 저장"
               >
-                <FileText className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">기록 저장</span>
               </button>
             )}
@@ -268,38 +284,72 @@ export default function Home() {
             {!isListening ? (
               <button
                 onClick={startListening}
+                aria-label="진료 시작 — 음성 인식을 시작합니다"
                 className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
               >
-                <Mic className="w-4 h-4" />
+                <Mic className="w-4 h-4" aria-hidden="true" />
                 진료 시작
               </button>
             ) : (
               <button
                 onClick={stopListening}
+                aria-label="음성 인식 중지"
                 className="flex items-center gap-2 bg-destructive hover:bg-destructive/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow animate-mic-ring"
               >
-                <Square className="w-4 h-4" />
+                <Square className="w-4 h-4" aria-hidden="true" />
                 중지
               </button>
             )}
 
-            <button onClick={handleClear} className="p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors" title="자막 지우기">
-              <Trash2 className="w-4 h-4" />
+            <button
+              onClick={handleClear}
+              aria-label="자막 기록 전체 삭제"
+              className="p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
+            >
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </header>
 
-        {/* Error banner */}
+        {/* ── 마이크 에러 배너 ── */}
         <AnimatePresence>
-          {errorMsg && (
+          {errorMsg && !errorDismissed && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
+              role="alert"
+              aria-live="assertive"
               className="mx-4 mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-2.5"
             >
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <p className="text-sm font-medium">{errorMsg}</p>
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{errorMsg}</p>
+                {isMicError && (
+                  <p className="text-xs mt-1 text-red-500">
+                    주소창 왼쪽 🔒 아이콘 → 마이크 → 허용 후 새로고침하세요.
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isMicError && (
+                  <button
+                    onClick={() => { setErrorDismissed(true); startListening(); }}
+                    aria-label="마이크 권한 재요청"
+                    className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-800 bg-red-100 hover:bg-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" aria-hidden="true" />
+                    재시도
+                  </button>
+                )}
+                <button
+                  onClick={() => setErrorDismissed(true)}
+                  aria-label="오류 메시지 닫기"
+                  className="p-1 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -307,17 +357,28 @@ export default function Home() {
         {/* Main — flex-1, row layout */}
         <main className="flex-1 flex flex-col md:flex-row overflow-hidden" style={{ minHeight: 0 }}>
 
-          {/* Left: Transcript history (scrollable) */}
+          {/* Left: Transcript history */}
           <div className="flex-1 flex flex-col overflow-hidden border-r border-border/50">
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth">
+            <div
+              ref={scrollRef}
+              role="log"
+              aria-live="polite"
+              aria-label="자막 기록"
+              aria-atomic="false"
+              aria-busy={isAiLoading}
+              className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth"
+            >
               {transcripts.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-16 opacity-60">
+                <div
+                  aria-label="자막 없음. 진료 시작 버튼을 눌러 시작하세요"
+                  className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-16 opacity-60"
+                >
                   <div className={`rounded-full bg-primary/10 flex items-center justify-center mb-5 transition-all duration-300 ${
                     fontSizeLevel === 0 ? 'w-20 h-20' : fontSizeLevel === 1 ? 'w-28 h-28' : 'w-36 h-36'
                   }`}>
                     <Stethoscope className={`text-primary/40 transition-all duration-300 ${
                       fontSizeLevel === 0 ? 'w-10 h-10' : fontSizeLevel === 1 ? 'w-14 h-14' : 'w-20 h-20'
-                    }`} />
+                    }`} aria-hidden="true" />
                   </div>
                   <p className={`font-bold mb-2 transition-all duration-300 ${
                     fontSizeLevel === 0 ? 'text-base' : fontSizeLevel === 1 ? 'text-xl' : 'text-2xl'
@@ -339,18 +400,18 @@ export default function Home() {
               )}
 
               {summaryLoading && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
+                <div role="status" aria-label="AI 분석 중" className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce" aria-hidden="true" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" aria-hidden="true" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" aria-hidden="true" />
                   <span className="ml-1">AI 분석 중...</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right: Medical Terms Sidebar */}
-          <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 flex flex-col overflow-hidden bg-card border-t md:border-t-0 border-border/50">
+          {/* Right: Medical Terms Sidebar — 데스크탑에서만 표시 */}
+          <div className="hidden md:flex md:flex-col w-[320px] lg:w-[360px] shrink-0 overflow-hidden bg-card border-l border-border/50">
             <div className="flex-1 min-h-0 p-4">
               <MedicalTermsPanel
                 selectedBlock={selectedBlockForPanel}
@@ -362,37 +423,121 @@ export default function Home() {
           </div>
         </main>
 
-        {/* ── 현재 발화 박스 (하단 고정) ───────────────────────── */}
-        <div className={`shrink-0 px-5 py-4 border-t-2 transition-colors duration-400 ${
-          interimText
-            ? 'border-primary bg-primary/5'
-            : 'border-border bg-white'
-        }`}>
+        {/* ── 현재 발화 박스 (하단 고정) ── */}
+        <div
+          className={`shrink-0 px-5 py-4 border-t-2 transition-colors duration-400 ${
+            interimText ? 'border-primary bg-primary/5' : 'border-border bg-white'
+          }`}
+        >
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-2 mb-2">
-              <Activity className={`w-4 h-4 ${interimText ? 'text-primary animate-pulse' : 'text-muted-foreground/30'}`} />
-              <span className={`text-xs font-bold tracking-wide uppercase ${interimText ? 'text-primary' : 'text-muted-foreground/50'}`}>
+              <Activity
+                className={`w-4 h-4 ${interimText ? 'text-primary animate-pulse' : 'text-muted-foreground/30'}`}
+                aria-hidden="true"
+              />
+              <span
+                className={`text-xs font-bold tracking-wide uppercase ${interimText ? 'text-primary' : 'text-muted-foreground/50'}`}
+                aria-hidden="true"
+              >
                 {interimText ? '실시간 음성 인식 중...' : '최근 발화'}
               </span>
               {interimText && (
-                <span className="flex gap-0.5 ml-1">
+                <span className="flex gap-0.5 ml-1" aria-hidden="true">
                   <span className="w-1 h-1 rounded-full bg-primary animate-bounce" />
                   <span className="w-1 h-1 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
                   <span className="w-1 h-1 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
                 </span>
               )}
             </div>
-            <p className={`${FONT_SIZES[fontSizeLevel]} font-bold tracking-tight leading-snug min-h-[52px] transition-colors duration-300 ${
-              interimText ? 'text-primary' : 'text-foreground/60'
-            }`}>
+            <p
+              aria-live="assertive"
+              aria-atomic="true"
+              aria-label={interimText ? `인식 중: ${interimText}` : `최근 발화: ${lastSpeaking || '없음'}`}
+              className={`${FONT_SIZES[fontSizeLevel]} font-bold tracking-tight leading-snug min-h-[52px] transition-colors duration-300 ${
+                interimText ? 'text-primary' : 'text-foreground/60'
+              }`}
+            >
               {interimText || lastSpeaking || (isListening ? '말씀하세요...' : '의사 선생님의 말씀이 여기에 표시됩니다')}
             </p>
           </div>
         </div>
 
+        {/* 모바일 의학 용어 사전 FAB — md 미만에서만 표시 */}
+        <div className="md:hidden shrink-0 flex justify-end px-4 py-2 bg-white border-t border-border/30">
+          <button
+            onClick={() => setShowTermsDrawer(true)}
+            aria-label="의학 용어 사전 열기"
+            aria-haspopup="dialog"
+            className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors"
+          >
+            <BookOpen className="w-4 h-4" aria-hidden="true" />
+            의학 용어 사전
+            {globalTerms.length > 0 && (
+              <span className="bg-primary text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
+                {globalTerms.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* 추천 답변 버튼 */}
-        <QuickReplyBar replies={suggestedReplies} />
+        <QuickReplyBar replies={suggestedReplies} isLoading={isAiLoading && suggestedReplies.length === 0} />
       </div>
+
+      {/* 모바일 의학 용어 사전 Bottom Drawer */}
+      <AnimatePresence>
+        {showTermsDrawer && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTermsDrawer(false)}
+              className="fixed inset-0 bg-black/40 z-40 md:hidden"
+              aria-hidden="true"
+            />
+            {/* Drawer */}
+            <motion.div
+              key="drawer-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label="의학 용어 사전"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl md:hidden flex flex-col"
+              style={{ maxHeight: '70vh' }}
+            >
+              {/* Drawer handle */}
+              <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-1 bg-muted-foreground/30 rounded-full absolute left-1/2 -translate-x-1/2 top-3" aria-hidden="true" />
+                  <BookOpen className="w-4 h-4 text-primary mt-1" aria-hidden="true" />
+                  <h2 className="text-sm font-bold text-foreground mt-1">의학 용어 사전</h2>
+                </div>
+                <button
+                  onClick={() => setShowTermsDrawer(false)}
+                  aria-label="의학 용어 사전 닫기"
+                  className="p-2 rounded-xl hover:bg-muted transition-colors"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 p-4 overflow-hidden">
+                <MedicalTermsPanel
+                  selectedBlock={selectedBlockForPanel}
+                  globalTerms={globalTerms}
+                  globalKeywords={globalKeywords}
+                  onClearSelection={() => { setSelectedId(null); setShowTermsDrawer(false); }}
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* 진료 기록 내보내기 모달 */}
       <ExportModal
