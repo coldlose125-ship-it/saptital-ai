@@ -182,12 +182,7 @@ export default function Home() {
   };
 
   const handleClearClick = () => {
-    if (confirmClear) {
-      handleClear();
-    } else {
-      setConfirmClear(true);
-      confirmClearTimerRef.current = setTimeout(() => setConfirmClear(false), 3000);
-    }
+    setConfirmClear(true);
   };
 
   useEffect(() => {
@@ -330,25 +325,14 @@ export default function Home() {
               </button>
             )}
 
-            <div className="relative">
-              <button
-                onClick={handleClearClick}
-                aria-label={confirmClear ? "한 번 더 누르면 전체 삭제됩니다" : "자막 기록 전체 삭제"}
-                title={confirmClear ? "한 번 더 누르면 삭제됩니다" : "전체 삭제"}
-                className={`p-2.5 rounded-xl transition-all duration-200 ${
-                  confirmClear
-                    ? 'bg-red-500 text-white animate-rec-ring'
-                    : 'bg-secondary hover:bg-muted text-secondary-foreground'
-                }`}
-              >
-                <Trash2 className="w-4 h-4" aria-hidden="true" />
-              </button>
-              {confirmClear && (
-                <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-md pointer-events-none">
-                  한 번 더 누르면 삭제
-                </span>
-              )}
-            </div>
+            <button
+              onClick={handleClearClick}
+              aria-label="자막 기록 전체 삭제"
+              title="전체 삭제"
+              className="p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
+            >
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
+            </button>
           </div>
         </header>
 
@@ -620,6 +604,58 @@ export default function Home() {
         globalKeywords={globalKeywords}
         sessionStart={sessionStartRef.current}
       />
+
+      {/* ── 삭제 확인 모달 ── */}
+      <AnimatePresence>
+        {confirmClear && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmClear(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-dialog-title"
+          >
+            <motion.div
+              initial={{ scale: 0.88, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5 text-red-500" aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id="clear-dialog-title" className="text-base font-bold text-foreground">자막 기록 삭제</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">지금까지의 대화 기록이 모두 삭제됩니다.</p>
+                </div>
+              </div>
+              <p className="text-sm text-foreground bg-muted/50 rounded-xl px-4 py-3">
+                삭제된 내용은 복구할 수 없습니다. 계속 진행하시겠습니까?
+              </p>
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => setConfirmClear(false)}
+                  className="flex-1 py-3 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleClear}
+                  className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors"
+                >
+                  삭제
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
