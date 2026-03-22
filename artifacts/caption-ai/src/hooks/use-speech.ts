@@ -9,31 +9,41 @@ declare global {
 
 export type SpeechStatus = '대기 중' | '녹음 중' | '처리 중' | '오류 발생' | '지원하지 않음';
 
-export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) => void) {
+export function useSpeechRecognition(
+  onResult: (text: string, isFinal: boolean) => void,
+  onDebugLog?: (msg: string) => void
+) {
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState<SpeechStatus>('대기 중');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [supported, setSupported] = useState(true);
 
   const recognitionRef = useRef<any>(null);
   const isManuallyStoppedRef = useRef(false);
   const isListeningRef = useRef(false);
-
-  // Keep the callback in a ref so the recognition instance is only created ONCE.
-  // Without this, every state update triggers a re-render, which creates a new
-  // callback reference, which restarts the recognition — breaking speech capture.
   const onResultRef = useRef(onResult);
-  useEffect(() => {
-    onResultRef.current = onResult;
-  }, [onResult]);
+  const onDebugRef = useRef(onDebugLog);
+
+  useEffect(() => { onResultRef.current = onResult; }, [onResult]);
+  useEffect(() => { onDebugRef.current = onDebugLog; }, [onDebugLog]);
+
+  const log = (msg: string) => {
+    console.log('[SpeechRecognition]', msg);
+    onDebugRef.current?.(msg);
+  };
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+      setSupported(false);
       setStatus('지원하지 않음');
-      setErrorMsg('이 브라우저는 음성인식을 지원하지 않습니다. Chrome을 권장합니다.');
+      setErrorMsg('이 브라우저는 음성인식을 지원하지 않습니다. Chrome 브라우저를 사용해주세요.');
+      log('지원하지 않음: SpeechRecognition API 없음');
       return;
     }
+
+    log('SpeechRecognition API 감지됨');
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -42,22 +52,30 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      log('onstart: 인식 시작됨');
       isListeningRef.current = true;
       setIsListening(true);
       setStatus('녹음 중');
       setErrorMsg(null);
-      isManuallyStoppedRef.current = false;
     };
 
+    recognition.onsoundstart = () => log('onsoundstart: 소리 감지됨');
+    recognition.onspeechstart = () => log('onspeechstart: 음성 감지됨');
+    recognition.onspeechend = () => log('onspeechend: 음성 종료됨');
+    recognition.onsoundend = () => log('onsoundend: 소리 종료됨');
+
     recognition.onresult = (event: any) => {
+      log(`onresult: resultIndex=${event.resultIndex}, results.length=${event.results.length}`);
       let interimTranscript = '';
       let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0]?.transcript;
-        if (!transcript) continue;
+        const transcript = event.results[i][0]?.transcript ?? '';
+        const confidence = event.results[i][0]?.confidence ?? 0;
+        const isFinal = event.results[i].isFinal;
+        log(`  result[${i}]: isFinal=${isFinal}, confidence=${confidence.toFixed(2)}, text="${transcript}"`);
 
-        if (event.results[i].isFinal) {
+        if (isFinal) {
           finalTranscript += transcript;
         } else {
           interimTranscript += transcript;
@@ -65,86 +83,108 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
       }
 
       if (finalTranscript.trim()) {
+        log(`최종 결과: "${finalTranscript.trim()}"`);
         setStatus('녹음 중');
         onResultRef.current(finalTranscript.trim(), true);
       } else if (interimTranscript.trim()) {
+        log(`중간 결과: "${interimTranscript.trim()}"`);
         setStatus('처리 중');
         onResultRef.current(interimTranscript.trim(), false);
       }
     };
 
     recognition.onerror = (event: any) => {
-      // no-speech = silence timeout, audio-capture = brief glitch → both are non-fatal
-      if (event.error === 'no-speech' || event.error === 'audio-capture') {
+      log(`onerror: ${event.error}`);
+
+      if (event.error === 'no-speech') {
+        log('no-speech: 무음 타임아웃 — onend에서 재시작 예정');
+        return;
+      }
+      if (event.error === 'audio-capture') {
+        log('audio-capture: 오디오 캡처 오류 — onend에서 재시작 예정');
         return;
       }
 
-      console.error('Speech recognition error', event.error);
       isListeningRef.current = false;
       setIsListening(false);
       setStatus('오류 발생');
       isManuallyStoppedRef.current = true;
 
       if (event.error === 'not-allowed') {
-        setErrorMsg('마이크 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+        setErrorMsg('마이크 권한이 없습니다. 브라우저 주소창의 마이크 아이콘을 클릭해 권한을 허용하세요.');
       } else if (event.error === 'network') {
-        setErrorMsg('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+        setErrorMsg('네트워크 오류: 인터넷 연결을 확인해주세요. (Google 음성인식은 인터넷 연결 필요)');
+      } else if (event.error === 'aborted') {
+        log('aborted: 중단됨 (정상)');
+        return;
       } else {
-        setErrorMsg(`음성인식 오류: ${event.error}`);
+        setErrorMsg(`오류: ${event.error}`);
       }
     };
 
     recognition.onend = () => {
-      // Auto-restart unless manually stopped or a fatal error occurred
+      log(`onend: manuallyStopped=${isManuallyStoppedRef.current}`);
       if (!isManuallyStoppedRef.current) {
-        try {
-          recognition.start();
-        } catch (e) {
-          isListeningRef.current = false;
-          setIsListening(false);
-          setStatus('대기 중');
-        }
+        log('onend: 자동 재시작 시도...');
+        setTimeout(() => {
+          try {
+            recognition.start();
+            log('onend: 재시작 성공');
+          } catch (e: any) {
+            log(`onend: 재시작 실패 — ${e?.message}`);
+            isListeningRef.current = false;
+            setIsListening(false);
+            setStatus('대기 중');
+          }
+        }, 300);
       } else {
         isListeningRef.current = false;
         setIsListening(false);
         setStatus('대기 중');
+        log('onend: 사용자가 중지함');
       }
     };
 
     recognitionRef.current = recognition;
+    log('인식기 초기화 완료');
 
-    // Cleanup: stop recognition when component unmounts
     return () => {
+      log('cleanup: 인식기 정리');
       isManuallyStoppedRef.current = true;
-      try {
-        recognition.stop();
-      } catch (e) {}
+      try { recognition.stop(); } catch (_) {}
     };
-  }, []); // Empty deps — create recognition only ONCE
+  }, []);
 
   const startListening = useCallback(() => {
     setErrorMsg(null);
-    if (recognitionRef.current && !isListeningRef.current) {
-      try {
-        isManuallyStoppedRef.current = false;
-        recognitionRef.current.start();
-      } catch (e) {
-        console.error('Failed to start recognition', e);
-      }
+    if (!recognitionRef.current) {
+      log('startListening: recognitionRef 없음');
+      return;
+    }
+    if (isListeningRef.current) {
+      log('startListening: 이미 녹음 중');
+      return;
+    }
+    try {
+      isManuallyStoppedRef.current = false;
+      recognitionRef.current.start();
+      log('startListening: start() 호출됨');
+    } catch (e: any) {
+      log(`startListening: 실패 — ${e?.message}`);
     }
   }, []);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListeningRef.current) {
-      isManuallyStoppedRef.current = true;
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
-      isListeningRef.current = false;
-      setIsListening(false);
-      setStatus('대기 중');
-    }
+    if (!recognitionRef.current) return;
+    isManuallyStoppedRef.current = true;
+    try {
+      recognitionRef.current.stop();
+    } catch (_) {}
+    isListeningRef.current = false;
+    setIsListening(false);
+    setStatus('대기 중');
+    log('stopListening: 중지됨');
   }, []);
 
-  return { isListening, status, errorMsg, startListening, stopListening };
+  return { isListening, status, errorMsg, supported, startListening, stopListening };
 }
