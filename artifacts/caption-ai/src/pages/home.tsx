@@ -506,7 +506,7 @@ export default function Home() {
             </div>
             <div
               className={[
-                'overflow-y-auto scroll-smooth transition-all duration-300',
+                'overflow-hidden hover:overflow-y-auto scroll-smooth transition-all duration-300',
                 fontSizeLevel === 0 ? 'max-h-[96px]' : fontSizeLevel === 1 ? 'max-h-[128px]' : 'max-h-[160px]',
               ].join(' ')}
             >
