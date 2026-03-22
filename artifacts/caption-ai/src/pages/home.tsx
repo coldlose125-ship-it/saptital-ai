@@ -5,19 +5,19 @@ import { processTranscript, ProcessedTranscript } from '@/lib/caption-engine';
 import { analyzeText, summarizeTexts } from '@/lib/ai-service';
 import { TranscriptItem } from '@/components/TranscriptItem';
 import { SummaryPanel } from '@/components/SummaryPanel';
-import { Mic, Square, Trash2, PlayCircle, AlertCircle, Bug, ChevronDown } from 'lucide-react';
+import { Mic, Square, Trash2, AlertCircle, Bug, ChevronDown } from 'lucide-react';
 
 export default function Home() {
   const [transcripts, setTranscripts] = useState<ProcessedTranscript[]>([]);
   const [interimText, setInterimText] = useState<string>('');
-  const [summary, setSummary] = useState({ text: "요약이 없습니다. 마이크를 시작하거나 예시를 눌러보세요.", keywords: [] as string[] });
+  const [globalSummary, setGlobalSummary] = useState({ text: "요약이 없습니다. 마이크를 시작하면 AI가 자동으로 요약해드립니다.", keywords: [] as string[] });
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const debugScrollRef = useRef<HTMLDivElement>(null);
-  const demoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSummarizedCountRef = useRef(0);
 
@@ -32,7 +32,6 @@ export default function Home() {
   const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[]) => {
     const result = await analyzeText(text, contextTexts);
     if (!result) {
-      // Clear loading state even on failure
       setTranscripts(prev => prev.map(t => t.id === id ? { ...t, aiLoading: false } : t));
       return;
     }
@@ -44,6 +43,7 @@ export default function Home() {
             aiTier: result.tier,
             aiLoading: false,
             displayText: result.simpleSummary !== text ? result.simpleSummary : undefined,
+            aiKeywords: result.keywords,
             isSmallTalk: result.isSmallTalk,
             topicChanged: result.topicChanged,
           }
@@ -51,7 +51,7 @@ export default function Home() {
     ));
   }, []);
 
-  // Debounced AI summarization — fires 3s after last new transcript, min 2 transcripts
+  // Debounced global AI summarization — uses AI-refined text when available
   const scheduleSummary = useCallback((allTranscripts: ProcessedTranscript[]) => {
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
     if (allTranscripts.length < 2) return;
@@ -60,11 +60,12 @@ export default function Home() {
       if (allTranscripts.length === lastSummarizedCountRef.current) return;
       lastSummarizedCountRef.current = allTranscripts.length;
       setSummaryLoading(true);
-      const texts = allTranscripts.slice(-8).map(t => t.originalText);
+      // Use AI-refined displayText if available, otherwise fall back to originalText
+      const texts = allTranscripts.slice(-8).map(t => t.displayText ?? t.originalText);
       const result = await summarizeTexts(texts);
       setSummaryLoading(false);
       if (result) {
-        setSummary({ text: result.summary, keywords: result.keywords });
+        setGlobalSummary({ text: result.summary, keywords: result.keywords });
       }
     }, 3000);
   }, []);
@@ -76,8 +77,7 @@ export default function Home() {
         setTranscripts(prev => {
           const next = [...prev, processed];
           scheduleSummary(next);
-          // Fire AI analysis with recent context
-          const contextTexts = prev.slice(-4).map(t => t.originalText);
+          const contextTexts = prev.slice(-4).map(t => t.displayText ?? t.originalText);
           runAIAnalysis(processed.id, text, contextTexts);
           return next;
         });
@@ -90,12 +90,12 @@ export default function Home() {
     selectedDeviceId
   );
 
-  // Auto-scroll transcript area
+  // Auto-scroll transcript area (only when no block is selected)
   useEffect(() => {
-    if (scrollRef.current) {
+    if (!selectedId && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [transcripts, interimText]);
+  }, [transcripts, interimText, selectedId]);
 
   // Auto-scroll debug panel
   useEffect(() => {
@@ -107,63 +107,30 @@ export default function Home() {
   const handleClear = () => {
     setTranscripts([]);
     setInterimText('');
-    setSummary({ text: "자막이 초기화되었습니다.", keywords: [] });
+    setGlobalSummary({ text: "자막이 초기화되었습니다.", keywords: [] });
+    setSelectedId(null);
     lastSummarizedCountRef.current = 0;
-    if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
   };
 
-  const addDemoTranscript = useCallback((text: string) => {
-    const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true };
-    setTranscripts(prev => {
-      const next = [...prev, processed];
-      scheduleSummary(next);
-      const contextTexts = prev.slice(-4).map(t => t.originalText);
-      runAIAnalysis(processed.id, text, contextTexts);
-      return next;
-    });
-  }, [runAIAnalysis, scheduleSummary]);
+  // Derive what the summary panel shows based on selection
+  const selectedTranscript = selectedId ? transcripts.find(t => t.id === selectedId) : null;
 
-  const runDemoScenario = (scenario: number) => {
-    if (isListening) stopListening();
-    if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+  const panelSummaryText = selectedTranscript
+    ? (selectedTranscript.displayText ?? selectedTranscript.originalText)
+    : globalSummary.text;
 
-    const scenarios: Record<number, string[]> = {
-      1: [
-        "안녕하세요. 내일 오전 10시에 중간고사가 있습니다.",
-        "장소가 변경되었습니다. 반드시 강의실 201호로 오세요.",
-        "시험 범위는 1단원부터 5단원까지입니다.",
-        "지각하면 입장이 절대 불가합니다.",
-        "마감은 내일 10시 정각입니다."
-      ],
-      2: [
-        "오늘 날씨가 너무 좋네요. 점심 뭐 드셨어요?",
-        "저는 김치찌개 먹었어요. 맛있었어요.",
-        "오늘 오후 3시에 긴급 팀 회의가 있습니다.",
-        "회의 장소는 3층 대회의실로 변경되었습니다.",
-        "모든 팀원은 반드시 참석해주세요.",
-      ],
-      3: [
-        "기말고사 일정을 안내합니다.",
-        "시험은 12월 20일 오전 9시에 시작합니다.",
-        "시험 장소는 대강당입니다.",
-        "신분증을 반드시 지참하세요.",
-        "다음으로 내일 식사 메뉴 이야기를 해 봅시다.",
-        "오늘 저녁은 삼겹살 어떤가요?"
-      ],
-    };
+  const panelKeywords = selectedTranscript
+    ? (selectedTranscript.aiKeywords ?? [])
+    : globalSummary.keywords;
 
-    const texts = scenarios[scenario] ?? [];
-    let i = 0;
-    demoIntervalRef.current = setInterval(() => {
-      if (i < texts.length) {
-        addDemoTranscript(texts[i]);
-        i++;
-      } else {
-        if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
-      }
-    }, 2000);
-  };
+  const panelIsLoading = selectedTranscript
+    ? (selectedTranscript.aiLoading ?? false)
+    : summaryLoading;
+
+  const panelTopic = selectedTranscript
+    ? selectedTranscript.aiTopic
+    : undefined;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -284,10 +251,17 @@ export default function Home() {
               <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8 opacity-60">
                 <Mic className="w-16 h-16 mb-4 text-border" />
                 <p className="text-lg font-bold">자막이 없습니다</p>
-                <p className="text-sm mt-2">상단의 '마이크 시작' 버튼을 누르거나<br />하단의 시연용 예시를 클릭하세요.</p>
+                <p className="text-sm mt-2">상단의 '마이크 시작' 버튼을 누르세요.</p>
               </div>
             ) : (
-              transcripts.map((t) => <TranscriptItem key={t.id} data={t} />)
+              transcripts.map((t) => (
+                <TranscriptItem
+                  key={t.id}
+                  data={t}
+                  isSelected={selectedId === t.id}
+                  onClick={() => setSelectedId(prev => prev === t.id ? null : t.id)}
+                />
+              ))
             )}
 
             {interimText && (
@@ -309,30 +283,16 @@ export default function Home() {
 
         {/* Summary Sidebar */}
         <div className="w-full md:w-[350px] lg:w-[400px] p-4 md:p-6 bg-background shrink-0">
-          <SummaryPanel summaryText={summary.text} keywords={summary.keywords} isLoading={summaryLoading} />
+          <SummaryPanel
+            summaryText={panelSummaryText}
+            keywords={panelKeywords}
+            isLoading={panelIsLoading}
+            isBlockSelected={selectedTranscript !== null && selectedTranscript !== undefined}
+            selectedTopic={panelTopic}
+            onClearSelection={() => setSelectedId(null)}
+          />
         </div>
       </main>
-
-      {/* Footer: Demo Buttons */}
-      <footer className="bg-card border-t border-border p-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4">
-          <span className="text-sm font-bold text-muted-foreground flex items-center gap-1.5">
-            <PlayCircle className="w-4 h-4" />
-            시연용 예시 버튼:
-          </span>
-          <div className="flex flex-wrap justify-center gap-2">
-            <button onClick={() => runDemoScenario(1)} className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-sm font-semibold transition-colors">
-              수업 공지
-            </button>
-            <button onClick={() => runDemoScenario(2)} className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-semibold transition-colors">
-              잡담 → 긴급 회의
-            </button>
-            <button onClick={() => runDemoScenario(3)} className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-sm font-semibold transition-colors">
-              시험 → 잡담
-            </button>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

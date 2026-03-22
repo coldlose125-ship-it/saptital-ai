@@ -24,6 +24,7 @@ export interface ProcessedTranscript {
   aiTier?: '일반' | '중요' | '핵심' | '긴급';
   aiLoading?: boolean;
   displayText?: string;    // AI-refined text replacing raw speech recognition errors
+  aiKeywords?: string[];   // AI-extracted keywords from the refined text
   isSmallTalk?: boolean;   // true when AI classifies as casual/unimportant conversation
   topicChanged?: boolean;  // true when AI detects a topic shift from previous context
 }

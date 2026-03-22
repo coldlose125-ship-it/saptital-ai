@@ -13,9 +13,11 @@ function cn(...inputs: ClassValue[]) {
 interface TranscriptItemProps {
   data: ProcessedTranscript;
   isInterim?: boolean;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
-export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps) {
+export function TranscriptItem({ data, isInterim = false, isSelected = false, onClick }: TranscriptItemProps) {
 
   const activeTier = data.aiTier ?? data.tier;
   const isSmallTalk = data.isSmallTalk === true && !isInterim;
@@ -93,12 +95,13 @@ export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps)
       <motion.div
         initial={{ opacity: 0, y: 10, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
+        onClick={!isInterim ? onClick : undefined}
         className={cn(
           "relative w-full p-4 rounded-2xl border transition-all duration-300",
           styles.wrapper,
-          isInterim ? "opacity-60 grayscale-[50%]" : "opacity-100 shadow-sm",
-          isSmallTalk ? "opacity-80" : "",
-          "hover:shadow-md"
+          isInterim ? "opacity-60 grayscale-[50%]" : "opacity-100 shadow-sm cursor-pointer",
+          isSmallTalk && !isSelected ? "opacity-80" : "",
+          isSelected ? "ring-2 ring-primary ring-offset-2 shadow-lg" : "hover:shadow-md hover:ring-1 hover:ring-primary/30 hover:ring-offset-1"
         )}
       >
         {/* Header: Badge & Timestamp */}
