@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSpeechRecognition } from '@/hooks/use-speech';
 import { useAudioDevices } from '@/hooks/use-audio-devices';
-import { processTranscript, generateSummary, ProcessedTranscript } from '@/lib/caption-engine';
+import { processTranscript, ProcessedTranscript } from '@/lib/caption-engine';
+import { analyzeText, summarizeTexts } from '@/lib/ai-service';
 import { TranscriptItem } from '@/components/TranscriptItem';
 import { SummaryPanel } from '@/components/SummaryPanel';
 import { Mic, Square, Trash2, PlayCircle, AlertCircle, Bug, ChevronDown } from 'lucide-react';
@@ -10,12 +11,15 @@ export default function Home() {
   const [transcripts, setTranscripts] = useState<ProcessedTranscript[]>([]);
   const [interimText, setInterimText] = useState<string>('');
   const [summary, setSummary] = useState({ text: "요약이 없습니다. 마이크를 시작하거나 예시를 눌러보세요.", keywords: [] as string[] });
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const debugScrollRef = useRef<HTMLDivElement>(null);
   const demoIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSummarizedCountRef = useRef(0);
 
   const addDebugLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -24,11 +28,47 @@ export default function Home() {
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
+  // Run Gemini analysis on a single transcript and update it in state
+  const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[]) => {
+    const result = await analyzeText(text, contextTexts);
+    if (!result) return;
+    setTranscripts(prev => prev.map(t =>
+      t.id === id
+        ? { ...t, aiTopic: result.topic, aiTier: result.tier, aiLoading: false }
+        : t
+    ));
+  }, []);
+
+  // Debounced AI summarization — fires 3s after last new transcript, min 2 transcripts
+  const scheduleSummary = useCallback((allTranscripts: ProcessedTranscript[]) => {
+    if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+    if (allTranscripts.length < 2) return;
+
+    summaryTimerRef.current = setTimeout(async () => {
+      if (allTranscripts.length === lastSummarizedCountRef.current) return;
+      lastSummarizedCountRef.current = allTranscripts.length;
+      setSummaryLoading(true);
+      const texts = allTranscripts.slice(-8).map(t => t.originalText);
+      const result = await summarizeTexts(texts);
+      setSummaryLoading(false);
+      if (result) {
+        setSummary({ text: result.summary, keywords: result.keywords });
+      }
+    }, 3000);
+  }, []);
+
   const { isListening, status, errorMsg, supported, startListening, stopListening } = useSpeechRecognition(
     (text, isFinal) => {
       if (isFinal) {
-        const processed = processTranscript(text);
-        setTranscripts(prev => [...prev, processed]);
+        const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true };
+        setTranscripts(prev => {
+          const next = [...prev, processed];
+          scheduleSummary(next);
+          // Fire AI analysis with recent context
+          const contextTexts = prev.slice(-4).map(t => t.originalText);
+          runAIAnalysis(processed.id, text, contextTexts);
+          return next;
+        });
         setInterimText('');
       } else {
         setInterimText(text);
@@ -37,13 +77,6 @@ export default function Home() {
     addDebugLog,
     selectedDeviceId
   );
-
-  // Update summary when transcripts grow
-  useEffect(() => {
-    if (transcripts.length > 0) {
-      setSummary(generateSummary(transcripts));
-    }
-  }, [transcripts]);
 
   // Auto-scroll transcript area
   useEffect(() => {
@@ -63,8 +96,21 @@ export default function Home() {
     setTranscripts([]);
     setInterimText('');
     setSummary({ text: "자막이 초기화되었습니다.", keywords: [] });
+    lastSummarizedCountRef.current = 0;
     if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+    if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
   };
+
+  const addDemoTranscript = useCallback((text: string) => {
+    const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true };
+    setTranscripts(prev => {
+      const next = [...prev, processed];
+      scheduleSummary(next);
+      const contextTexts = prev.slice(-4).map(t => t.originalText);
+      runAIAnalysis(processed.id, text, contextTexts);
+      return next;
+    });
+  }, [runAIAnalysis, scheduleSummary]);
 
   const runDemoScenario = (scenario: number) => {
     if (isListening) stopListening();
@@ -98,7 +144,7 @@ export default function Home() {
     let i = 0;
     demoIntervalRef.current = setInterval(() => {
       if (i < texts.length) {
-        setTranscripts(prev => [...prev, processTranscript(texts[i])]);
+        addDemoTranscript(texts[i]);
         i++;
       } else {
         if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
@@ -121,7 +167,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Device selector — always visible, populated after mic permission */}
+          {/* Device selector */}
           <div className="relative flex items-center">
             <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" />
             <select
@@ -250,7 +296,7 @@ export default function Home() {
 
         {/* Summary Sidebar */}
         <div className="w-full md:w-[350px] lg:w-[400px] p-4 md:p-6 bg-background shrink-0">
-          <SummaryPanel summaryText={summary.text} keywords={summary.keywords} />
+          <SummaryPanel summaryText={summary.text} keywords={summary.keywords} isLoading={summaryLoading} />
         </div>
       </main>
 
@@ -268,7 +314,7 @@ export default function Home() {
             <button onClick={() => runDemoScenario(2)} className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-semibold transition-colors">
               회의 안내
             </button>
-            <button onClick={() => runDemoScenario(3)} className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-sm font-semibold transition-colors">
+            <button onClick={() => runDemoScenario(3)} className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-sm font-semibore transition-colors">
               시험 일정
             </button>
           </div>

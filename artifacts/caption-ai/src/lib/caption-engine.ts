@@ -19,6 +19,10 @@ export interface ProcessedTranscript {
   keywordsFound: string[];
   segments: { text: string; isKeyword: boolean; keywordTier?: string }[];
   timestamp: Date;
+  // AI-enriched fields (set asynchronously after Gemini analysis)
+  aiTopic?: string;
+  aiTier?: '일반' | '중요' | '핵심' | '긴급';
+  aiLoading?: boolean;
 }
 
 export function processTranscript(text: string): ProcessedTranscript {

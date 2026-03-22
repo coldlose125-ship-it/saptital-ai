@@ -2,7 +2,7 @@ import React from 'react';
 import { ProcessedTranscript } from '@/lib/caption-engine';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { AlertCircle, AlertTriangle, Info, Clock, Edit2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, Clock, Edit2, Loader2, Sparkles } from 'lucide-react';
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -16,8 +16,10 @@ interface TranscriptItemProps {
 }
 
 export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps) {
-  
-  // Get styles based on tier
+
+  // Prefer AI tier over keyword tier when available
+  const activeTier = data.aiTier ?? data.tier;
+
   const getTierStyles = (tier: string) => {
     switch (tier) {
       case '긴급':
@@ -36,7 +38,7 @@ export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps)
         };
       case '중요':
       case '일정':
-      case '변경': // Using same visual for these lower tiers
+      case '변경':
         return {
           wrapper: 'border-[#ffcc00] bg-[#fffdf0]',
           badge: 'bg-[#ffcc00] text-amber-950',
@@ -53,7 +55,10 @@ export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps)
     }
   };
 
-  const styles = getTierStyles(data.tier);
+  const styles = getTierStyles(activeTier);
+
+  // Topic label: AI topic if available, else tier name
+  const topicLabel = data.aiTopic ?? (activeTier !== '일반' ? activeTier : null);
 
   return (
     <motion.div
@@ -69,16 +74,30 @@ export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps)
       {/* Header: Badge & Timestamp */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          {styles.badge && (
-            <div className={cn(
-              "flex items-center px-2 py-0.5 rounded-full text-xs font-bold tracking-wide",
-              styles.badge,
-              styles.isPulse && "animate-pulse-soft"
-            )}>
-              {styles.icon}
-              {data.tier}
-            </div>
+          {/* AI loading spinner */}
+          {data.aiLoading && !isInterim && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>AI 분석 중</span>
+            </span>
           )}
+
+          {/* Topic badge — shows when AI is done or keyword matched */}
+          {!data.aiLoading && topicLabel && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={cn(
+                "flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide gap-1",
+                styles.badge,
+                styles.isPulse && "animate-pulse-soft"
+              )}
+            >
+              {data.aiTopic ? <Sparkles className="w-3 h-3" /> : styles.icon}
+              {topicLabel}
+            </motion.div>
+          )}
+
           {isInterim && (
             <span className="text-xs text-muted-foreground flex items-center animate-pulse">
               <Edit2 className="w-3 h-3 mr-1" /> 작성 중...
@@ -97,12 +116,9 @@ export function TranscriptItem({ data, isInterim = false }: TranscriptItemProps)
           if (!segment.isKeyword) {
             return <span key={idx}>{segment.text}</span>;
           }
-          
-          // Style keywords inline
-          const kwStyles = getTierStyles(segment.keywordTier || '일반');
           return (
-            <span 
-              key={idx} 
+            <span
+              key={idx}
               className={cn(
                 "font-bold px-1 py-0.5 rounded-md inline-block -my-0.5 mx-0.5 transition-colors",
                 segment.keywordTier === '긴급' ? "bg-red-100 text-red-700" :
