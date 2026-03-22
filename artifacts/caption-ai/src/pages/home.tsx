@@ -234,42 +234,10 @@ export default function Home() {
         {/* Main — flex-1, row layout */}
         <main className="flex-1 flex flex-col md:flex-row overflow-hidden" style={{ minHeight: 0 }}>
 
-          {/* Left: Transcript area */}
+          {/* Left: Transcript history (scrollable) */}
           <div className="flex-1 flex flex-col overflow-hidden border-r border-border/50">
-
-            {/* Current live display — shows interim or latest big text */}
-            <AnimatePresence>
-              {(isListening || interimText || lastSpeaking) && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="shrink-0 px-5 pt-4 pb-3"
-                >
-                  <div className={`rounded-2xl border-2 p-5 min-h-[90px] transition-colors duration-500 ${
-                    interimText
-                      ? 'border-primary/40 bg-primary/5'
-                      : 'border-border bg-card'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className={`w-4 h-4 ${interimText ? 'text-primary animate-pulse' : 'text-muted-foreground/40'}`} />
-                      <span className="text-xs font-semibold text-muted-foreground">
-                        {interimText ? '실시간 음성 인식 중...' : '최근 발화'}
-                      </span>
-                    </div>
-                    <p className={`text-2xl md:text-3xl font-bold tracking-tight leading-snug ${
-                      interimText ? 'text-primary' : 'text-foreground/70'
-                    }`}>
-                      {interimText || lastSpeaking || '의사 선생님의 말씀이 여기에 표시됩니다'}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Scrollable transcript history */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-5 space-y-3 scroll-smooth">
-              {transcripts.length === 0 && !interimText ? (
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth">
+              {transcripts.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-16 opacity-60">
                   <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
                     <Stethoscope className="w-10 h-10 text-primary/40" />
@@ -287,21 +255,6 @@ export default function Home() {
                     onClick={() => setSelectedId(prev => prev === t.id ? null : t.id)}
                   />
                 ))
-              )}
-
-              {interimText && (
-                <TranscriptItem
-                  data={{
-                    id: 'interim',
-                    originalText: interimText,
-                    score: 0,
-                    tier: '일반',
-                    keywordsFound: [],
-                    segments: [{ text: interimText, isKeyword: false }],
-                    timestamp: new Date(),
-                  }}
-                  isInterim
-                />
               )}
 
               {summaryLoading && (
@@ -326,7 +279,35 @@ export default function Home() {
           </div>
         </main>
 
-        {/* Bottom quick reply bar */}
+        {/* ── 현재 발화 박스 (하단 고정) ───────────────────────── */}
+        <div className={`shrink-0 px-5 py-4 border-t-2 transition-colors duration-400 ${
+          interimText
+            ? 'border-primary bg-primary/5'
+            : 'border-border bg-white'
+        }`}>
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className={`w-4 h-4 ${interimText ? 'text-primary animate-pulse' : 'text-muted-foreground/30'}`} />
+              <span className={`text-xs font-bold tracking-wide uppercase ${interimText ? 'text-primary' : 'text-muted-foreground/50'}`}>
+                {interimText ? '실시간 음성 인식 중...' : '최근 발화'}
+              </span>
+              {interimText && (
+                <span className="flex gap-0.5 ml-1">
+                  <span className="w-1 h-1 rounded-full bg-primary animate-bounce" />
+                  <span className="w-1 h-1 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" />
+                  <span className="w-1 h-1 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" />
+                </span>
+              )}
+            </div>
+            <p className={`text-3xl md:text-4xl font-bold tracking-tight leading-snug min-h-[52px] transition-colors duration-300 ${
+              interimText ? 'text-primary' : 'text-foreground/60'
+            }`}>
+              {interimText || lastSpeaking || (isListening ? '말씀하세요...' : '의사 선생님의 말씀이 여기에 표시됩니다')}
+            </p>
+          </div>
+        </div>
+
+        {/* 추천 답변 버튼 */}
         <QuickReplyBar replies={suggestedReplies} />
       </div>
     </>
