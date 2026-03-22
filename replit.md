@@ -1,8 +1,16 @@
-# Workspace
+# Sapital AI — 청각장애인 병원 진료 맞춤 소통 서비스
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+pnpm workspace monorepo using TypeScript. The main product is **Sapital AI**, a hospital-specialized bidirectional communication service for hearing-impaired patients featuring real-time captioning, Gemini AI medical analysis, medical terms sidebar, TTS quick-reply, font size controls, session export, and localStorage persistence.
+
+## Architecture
+
+- **Frontend** (`artifacts/caption-ai`): React + Vite + Tailwind CSS v4 + Framer Motion
+- **Backend** (`artifacts/api-server`): Express 5 API server with Gemini AI integration
+- **AI**: Gemini 2.5 Flash via Replit AI Integrations (`@workspace/integrations-gemini-ai`)
+- **Speech**: Web Speech API (recognition + TTS) — Chrome required
+- **Storage**: localStorage (`sapital_session_v1` key) with quota overflow warning
 
 ## Stack
 
@@ -11,86 +19,80 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Frontend**: React 19, Vite 7, Tailwind CSS v4
+- **Validation**: Zod (`zod/v4`)
+- **Build**: esbuild (API server), Vite (frontend)
+
+## Key Features
+
+1. **Real-time captioning** — Web Speech API with sentence-boundary detection, idle flush, 5-minute silence watchdog
+2. **Gemini AI analysis** — Medical term extraction, sentiment, topic classification, tier badges, suggested replies
+3. **Medical terms sidebar** — Desktop right panel, mobile bottom drawer with scroll
+4. **TTS quick-reply** — 3 AI-suggested replies with Korean voice priority selection, speaking state feedback
+5. **Font size controls** — 3 levels (표준/크게/매우 크게), desktop header + mobile bottom bar
+6. **Session export** — Copy to clipboard, PDF save, print — A4 formatted report
+7. **localStorage persistence** — Auto-save with quota overflow user warning
+8. **Delete confirmation** — Centered modal dialog with cancel/delete buttons + Escape key
+9. **Splash screen** — Branded 2.5s intro animation
 
 ## Structure
 
 ```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+artifacts/
+├── caption-ai/           # React frontend (port from PORT env)
+│   └── src/
+│       ├── pages/home.tsx        # Main page — all state management
+│       ├── components/           # UI components
+│       │   ├── QuickReplyBar.tsx  # TTS reply buttons with speaking state
+│       │   ├── MedicalTermsPanel.tsx  # Medical terms sidebar
+│       │   ├── TranscriptItem.tsx # Individual transcript block
+│       │   ├── ExportModal.tsx    # Session export modal
+│       │   ├── AlertBar.tsx       # Alert notifications
+│       │   └── SplashScreen.tsx   # Splash animation
+│       ├── hooks/
+│       │   ├── use-speech.ts      # Web Speech API hook with sentence buffering
+│       │   └── use-audio-devices.ts  # Audio device enumeration
+│       ├── lib/
+│       │   ├── ai-service.ts      # API calls + TTS engine with voice priority
+│       │   └── caption-engine.ts  # Keyword detection + scoring
+│       └── index.css              # Tailwind config + custom animations
+├── api-server/           # Express 5 backend (port from PORT env)
+│   └── src/
+│       ├── index.ts               # Server entry
+│       ├── app.ts                 # Express app setup + production static serving
+│       └── routes/
+│           ├── index.ts           # Route aggregator
+│           ├── health.ts          # GET /api/healthz
+│           └── ai/index.ts        # POST /api/ai/analyze, /api/ai/summarize
+└── mockup-sandbox/       # Component preview server (dev only)
 ```
 
-## TypeScript & Composite Projects
+## Deployment
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+- **Type**: Reserved VM (no sleep mode)
+- **Build**: `BASE_PATH=/ pnpm --filter @workspace/caption-ai run build && pnpm --filter @workspace/api-server run build`
+- **Run**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
+- **Production**: Single Express server serves both API routes (`/api/*`) and built React frontend via `express.static`
+- Express 5 requires `/{*splat}` wildcard syntax for catch-all routes
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+## Environment Variables / Secrets
 
-## Root Scripts
+- `AI_INTEGRATIONS_GEMINI_API_KEY` — Auto-provided by Replit Gemini integration
+- `AI_INTEGRATIONS_GEMINI_BASE_URL` — Auto-provided by Replit Gemini integration
+- `PORT` — Auto-assigned by Replit per artifact
+- No hardcoded API keys in codebase
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+## API Endpoints
 
-## Packages
+- `POST /api/ai/analyze` — Analyze medical speech text with Gemini AI
+- `POST /api/ai/summarize` — Summarize multiple transcript entries
+- `GET /api/healthz` — Health check
 
-### `artifacts/api-server` (`@workspace/api-server`)
+## Key Technical Details
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- **API timeout**: 15s AbortController on both analyze/summarize calls
+- **Stale state guard**: `sessionIdRef` incremented on clear, checked before setState
+- **Font sizes**: `['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl']`
+- **TTS voice priority**: Google 한국의 > Yuna > Sora > Nari > Google 한국어 > Microsoft Heami > Microsoft Sora
+- **Sentence detection**: Korean sentence-final endings regex + 160 char force flush + 3.5s idle flush
+- **Silence watchdog**: 5 minutes of no speech → auto-stop recognition

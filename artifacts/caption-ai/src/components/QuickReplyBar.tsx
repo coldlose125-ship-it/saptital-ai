@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Volume2, Square } from 'lucide-react';
 import { speakText } from '@/lib/ai-service';
@@ -23,6 +23,15 @@ function SkeletonButton({ delay }: { delay: number }) {
 
 export function QuickReplyBar({ replies, isLoading = false, onReply }: QuickReplyBarProps) {
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const handleClick = async (text: string, idx: number) => {
     if (speakingIdx === idx) {
@@ -33,7 +42,7 @@ export function QuickReplyBar({ replies, isLoading = false, onReply }: QuickRepl
     setSpeakingIdx(idx);
     onReply?.(text);
     await speakText(text);
-    setSpeakingIdx(null);
+    if (mountedRef.current) setSpeakingIdx(null);
   };
 
   const showSkeleton = isLoading && replies.length === 0;

@@ -23,8 +23,7 @@ export function useAudioDevices() {
       if (audioInputs.length > 0 && !audioInputs.find(d => d.deviceId === selectedDeviceId)) {
         setSelectedDeviceId(audioInputs[0].deviceId);
       }
-    } catch (e) {
-      console.error('장치 목록 로드 실패', e);
+    } catch {
     }
   }, [selectedDeviceId]);
 
@@ -35,8 +34,7 @@ export function useAudioDevices() {
       stream.getTracks().forEach(t => t.stop());
       setPermissionGranted(true);
       await loadDevices();
-    } catch (e) {
-      console.error('마이크 권한 요청 실패', e);
+    } catch {
     }
   }, [loadDevices]);
 

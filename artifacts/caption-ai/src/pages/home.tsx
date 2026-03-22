@@ -54,7 +54,6 @@ export default function Home() {
   const [errorDismissed, setErrorDismissed] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
-  const confirmClearTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -154,9 +153,17 @@ export default function Home() {
   useEffect(() => {
     return () => {
       if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
-      if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!confirmClear) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setConfirmClear(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [confirmClear]);
 
   useEffect(() => {
     if (!selectedId && scrollRef.current) {
@@ -167,7 +174,6 @@ export default function Home() {
   const handleClear = () => {
     sessionIdRef.current += 1;
     setConfirmClear(false);
-    if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current);
     setTranscripts([]);
     setInterimText('');
     setSelectedId(null);
@@ -236,9 +242,9 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            {/* Device selector */}
-            <div className="relative flex items-center">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+            {/* Device selector — 모바일에서 숨김 */}
+            <div className="relative items-center hidden sm:flex">
               <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" aria-hidden="true" />
               <select
                 value={selectedDeviceId}
@@ -273,7 +279,7 @@ export default function Home() {
             <div
               role="group"
               aria-label="자막 글자 크기 선택"
-              className="flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5"
+              className="hidden sm:flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5"
             >
               {([0, 1, 2] as const).map(level => (
                 <button
@@ -298,7 +304,7 @@ export default function Home() {
               <button
                 onClick={() => setShowExport(true)}
                 aria-label="오늘의 진료 기록 저장 및 내보내기"
-                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl font-bold text-xs transition-colors"
+                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 sm:px-3 py-2 rounded-xl font-bold text-xs transition-colors"
               >
                 <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">기록 저장</span>
@@ -309,16 +315,16 @@ export default function Home() {
               <button
                 onClick={startListening}
                 aria-label="진료 시작 — 음성 인식을 시작합니다"
-                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+                className="flex items-center gap-1.5 sm:gap-2 bg-primary hover:bg-primary/90 text-white px-3 sm:px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Mic className="w-4 h-4" aria-hidden="true" />
-                진료 시작
+                <span className="hidden xs:inline">진료</span> 시작
               </button>
             ) : (
               <button
                 onClick={stopListening}
                 aria-label="음성 인식 중지"
-                className="flex items-center gap-2 bg-destructive hover:bg-destructive/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow animate-rec-ring"
+                className="flex items-center gap-1.5 sm:gap-2 bg-destructive hover:bg-destructive/90 text-white px-3 sm:px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow animate-rec-ring"
               >
                 <Square className="w-4 h-4" aria-hidden="true" />
                 중지
@@ -329,7 +335,7 @@ export default function Home() {
               onClick={handleClearClick}
               aria-label="자막 기록 전체 삭제"
               title="전체 삭제"
-              className="p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
+              className="p-2 sm:p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
             >
               <Trash2 className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -519,7 +525,29 @@ export default function Home() {
         </div>
 
         {/* 모바일 의학 용어 사전 FAB — md 미만에서만 표시 */}
-        <div className="md:hidden shrink-0 flex justify-end px-4 py-2 bg-white border-t border-border/30">
+        <div className="md:hidden shrink-0 flex items-center justify-between px-4 py-2 bg-white border-t border-border/30">
+          <div
+            role="group"
+            aria-label="자막 글자 크기 선택 (모바일)"
+            className="flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5"
+          >
+            {([0, 1, 2] as const).map(level => (
+              <button
+                key={level}
+                onClick={() => setFontSizeLevel(level)}
+                aria-label={`글자 크기 ${FONT_LABELS[level]}`}
+                aria-pressed={fontSizeLevel === level}
+                className={`px-2 py-1.5 rounded-lg text-xs font-extrabold transition-all leading-none ${
+                  fontSizeLevel === level
+                    ? 'bg-primary text-white shadow'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+                style={{ fontSize: `${10 + level * 2}px` }}
+              >
+                가
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setShowTermsDrawer(true)}
             aria-label="의학 용어 사전 열기"
@@ -527,7 +555,7 @@ export default function Home() {
             className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors"
           >
             <BookOpen className="w-4 h-4" aria-hidden="true" />
-            의학 용어 사전
+            용어 사전
             {globalTerms.length > 0 && (
               <span className="bg-primary text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
                 {globalTerms.length}
