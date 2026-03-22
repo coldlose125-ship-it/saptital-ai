@@ -147,7 +147,7 @@ export default function Home() {
     <>
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
 
-      <div className="min-h-screen bg-background flex flex-col font-sans overflow-hidden">
+      <div className="h-screen bg-background flex flex-col font-sans overflow-hidden">
         {/* Alert bar at top */}
         <AlertBar />
 
