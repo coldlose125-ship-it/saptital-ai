@@ -54,7 +54,6 @@ export function useSpeechRecognition(
   useEffect(() => { onDebugRef.current = onDebugLog; }, [onDebugLog]);
 
   const log = (msg: string) => {
-    console.log('[SpeechRecognition]', msg);
     onDebugRef.current?.(msg);
   };
 

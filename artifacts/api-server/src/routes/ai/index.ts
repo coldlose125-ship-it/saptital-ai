@@ -95,7 +95,7 @@ router.post("/ai/analyze", async (req, res) => {
     });
   } catch (err: any) {
     console.error("AI analyze error:", err);
-    res.status(500).json({ error: "AI 분석 실패", detail: err?.message });
+    res.status(500).json({ error: "AI 분석 실패" });
   }
 });
 
@@ -136,7 +136,7 @@ keywords: 최대 5개 핵심 의료 단어`;
     });
   } catch (err: any) {
     console.error("AI summarize error:", err);
-    res.status(500).json({ error: "AI 요약 실패", detail: err?.message });
+    res.status(500).json({ error: "AI 요약 실패" });
   }
 });
 

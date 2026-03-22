@@ -451,6 +451,11 @@ export function ExportModal({
   open, onClose, transcripts, globalTerms, globalKeywords, sessionStart
 }: ExportModalProps) {
   const [toast, setToast] = useState(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
 
   const dateStr = format(sessionStart, 'yyyy년 MM월 dd일 (EEEE)', { locale: ko });
   const startTime = format(sessionStart, 'HH:mm');
@@ -471,7 +476,8 @@ export function ExportModal({
       document.body.removeChild(el);
     }
     setToast(true);
-    setTimeout(() => setToast(false), 3000);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(false), 3000);
   };
 
   /* 인쇄 창 열기 공통 함수 */

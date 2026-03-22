@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSpeechRecognition } from '@/hooks/use-speech';
 import { useAudioDevices } from '@/hooks/use-audio-devices';
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 const FONT_SIZES = ['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl'] as const;
-const FONT_LABELS = ['표준', '크게', '매우\n크게'] as const;
+const FONT_LABELS = ['표준', '크게', '매우 크게'] as const;
 const STORAGE_KEY = 'sapital_session_v1';
 
 function loadSession() {
@@ -60,7 +60,7 @@ export default function Home() {
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
-  const isAiLoading = transcripts.some(t => t.aiLoading);
+  const isAiLoading = useMemo(() => transcripts.some(t => t.aiLoading), [transcripts]);
 
   const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[]) => {
     const result = await analyzeText(text, contextTexts);
@@ -140,6 +140,12 @@ export default function Home() {
   useEffect(() => {
     if (errorMsg) setErrorDismissed(false);
   }, [errorMsg]);
+
+  useEffect(() => {
+    return () => {
+      if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedId && scrollRef.current) {
@@ -294,7 +300,7 @@ export default function Home() {
               <button
                 onClick={stopListening}
                 aria-label="음성 인식 중지"
-                className="flex items-center gap-2 bg-destructive hover:bg-destructive/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow animate-mic-ring"
+                className="flex items-center gap-2 bg-destructive hover:bg-destructive/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow animate-rec-ring"
               >
                 <Square className="w-4 h-4" aria-hidden="true" />
                 중지
@@ -411,7 +417,7 @@ export default function Home() {
           </div>
 
           {/* Right: Medical Terms Sidebar — 데스크탑에서만 표시 */}
-          <div className="hidden md:flex md:flex-col w-[320px] lg:w-[360px] shrink-0 overflow-hidden bg-card border-l border-border/50">
+          <div className="hidden md:flex md:flex-col w-[320px] lg:w-[360px] shrink-0 overflow-hidden bg-card">
             <div className="flex-1 min-h-0 p-4">
               <MedicalTermsPanel
                 selectedBlock={selectedBlockForPanel}
@@ -425,7 +431,7 @@ export default function Home() {
 
         {/* ── 현재 발화 박스 (하단 고정) ── */}
         <div
-          className={`shrink-0 px-5 py-4 border-t-2 transition-colors duration-400 ${
+          className={`shrink-0 px-5 py-4 border-t-2 transition-colors duration-300 ${
             interimText ? 'border-primary bg-primary/5' : 'border-border bg-white'
           }`}
         >

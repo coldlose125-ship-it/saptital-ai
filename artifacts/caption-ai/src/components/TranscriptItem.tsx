@@ -55,10 +55,15 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onClick={!isInterim ? onClick : undefined}
+        onKeyDown={!isInterim ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+        role={!isInterim ? 'button' : undefined}
+        tabIndex={!isInterim ? 0 : undefined}
+        aria-pressed={!isInterim ? isSelected : undefined}
+        aria-label={!isInterim ? `자막 블록: ${mainText}${isSelected ? ' (선택됨)' : ''}` : undefined}
         className={cn(
           "relative w-full p-4 rounded-2xl border border-border transition-all duration-200 bg-white",
           isInterim ? "opacity-60" : "",
-          !isInterim && "cursor-pointer",
+          !isInterim && "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
           isSelected
             ? "ring-2 ring-primary ring-offset-2 shadow-lg border-primary/30"
             : !isInterim && "hover:shadow-md hover:border-primary/20 hover:ring-1 hover:ring-primary/20"
@@ -68,8 +73,8 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* AI loading */}
           {data.aiLoading && !isInterim && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="flex items-center gap-1 text-xs text-muted-foreground" aria-label="AI 분석 중">
+              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
               AI 분석 중...
             </span>
           )}
@@ -81,7 +86,7 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary"
             >
-              <Sparkles className="w-3 h-3" />
+              <Sparkles className="w-3 h-3" aria-hidden="true" />
               {data.aiTopic}
             </motion.span>
           )}
@@ -102,14 +107,14 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
 
           {/* Interim indicator */}
           {isInterim && (
-            <span className="text-xs text-muted-foreground flex items-center animate-pulse">
-              <Edit2 className="w-3 h-3 mr-1" /> 인식 중...
+            <span className="text-xs text-muted-foreground flex items-center animate-pulse" aria-label="인식 중">
+              <Edit2 className="w-3 h-3 mr-1" aria-hidden="true" /> 인식 중...
             </span>
           )}
 
           <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
-            <Clock className="w-3 h-3 opacity-50" />
-            {format(data.timestamp, 'HH:mm:ss')}
+            <Clock className="w-3 h-3 opacity-50" aria-hidden="true" />
+            <time dateTime={data.timestamp.toISOString()}>{format(data.timestamp, 'HH:mm:ss')}</time>
           </span>
         </div>
 
