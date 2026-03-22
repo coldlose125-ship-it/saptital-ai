@@ -74,18 +74,30 @@ export function MedicalTermsPanel({ selectedBlock, globalTerms, globalKeywords, 
       </div>
 
       {/* Medical terms list */}
-      <div className="flex-1 overflow-y-auto space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-2.5 pr-0.5">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2">
           <BookOpen className="w-3.5 h-3.5" />
           의학 용어 풀이
         </div>
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="wait">
           {terms.length > 0 ? (
-            terms.map((t, i) => <TermCard key={`${t.term}-${i}`} {...t} />)
-          ) : (
             <motion.div
+              key={isBlockSelected ? 'selected' : 'global'}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-2.5"
+            >
+              {terms.map((t, i) => <TermCard key={`${t.term}-${i}`} {...t} />)}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="text-center py-6 text-muted-foreground"
             >
               <FlaskConical className="w-8 h-8 mx-auto mb-2 opacity-30" />

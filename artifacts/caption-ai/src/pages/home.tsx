@@ -350,13 +350,15 @@ export default function Home() {
           </div>
 
           {/* Right: Medical Terms Sidebar */}
-          <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 p-4 overflow-y-auto bg-card border-t md:border-t-0 border-border/50">
-            <MedicalTermsPanel
-              selectedBlock={selectedBlockForPanel}
-              globalTerms={globalTerms}
-              globalKeywords={globalKeywords}
-              onClearSelection={() => setSelectedId(null)}
-            />
+          <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 flex flex-col overflow-hidden bg-card border-t md:border-t-0 border-border/50">
+            <div className="flex-1 min-h-0 p-4">
+              <MedicalTermsPanel
+                selectedBlock={selectedBlockForPanel}
+                globalTerms={globalTerms}
+                globalKeywords={globalKeywords}
+                onClearSelection={() => setSelectedId(null)}
+              />
+            </div>
           </div>
         </main>
 

@@ -298,16 +298,8 @@ function buildPrintHtml(
 <body>
   <div class="page-wrap">
     <!-- 화면에서만 보이는 액션 영역 -->
-    <div class="no-print" style="display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:24px;">
+    <div class="no-print" style="display:flex;flex-direction:column;align-items:center;gap:0;margin-top:32px;margin-bottom:40px;">
       ${mode === 'save' ? `
-        <div class="save-guide">
-          <span style="font-size:22px;line-height:1">💾</span>
-          <div>
-            <strong>PDF로 저장하는 방법</strong>
-            아래 버튼을 클릭한 후 열리는 대화상자에서<br/>
-            <b>'대상(목적지)'</b>을 <b>'PDF로 저장'</b>으로 선택하면 PDF 파일로 저장됩니다.
-          </div>
-        </div>
         <div class="print-actions">
           <button class="btn btn-save" onclick="window.print()">💾 PDF로 저장</button>
           <button class="btn btn-close" onclick="window.close()">닫기</button>
@@ -340,8 +332,7 @@ function buildPrintHtml(
         </div>
         <div class="report-label">
           <strong>진료 요약 리포트</strong>
-          ${dateStr}<br/>
-          진료 시간: ${startTime} ~ ${endTime}
+          ${dateStr} · ${startTime} ~ ${endTime}
         </div>
       </div>
 
