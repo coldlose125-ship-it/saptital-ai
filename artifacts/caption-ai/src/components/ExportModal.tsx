@@ -135,6 +135,7 @@ function buildPrintHtml(
       font-size: 11px;
       color: #94a3b8;
       line-height: 1.6;
+      white-space: nowrap;
     }
     .report-label strong { color: #1e293b; font-size: 13px; display: block; }
 
