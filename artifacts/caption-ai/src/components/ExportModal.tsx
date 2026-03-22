@@ -172,7 +172,7 @@ function buildPrintHtml(
     }
     .meta-cell:last-child { border-right: none; }
     .meta-cell label { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-    .meta-cell p { font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 3px; }
+    .meta-cell p { font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* 섹션 헤더 */
     h2 {
