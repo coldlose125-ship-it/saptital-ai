@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Clock, Edit2, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { useSettings } from '@/lib/settings-context';
+import { translateTier } from '@/lib/i18n';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -29,6 +31,7 @@ const TIER_BADGE: Record<string, string> = {
 };
 
 export function TranscriptItem({ data, isInterim = false, isSelected = false, onClick, fontSizeLevel = 0 }: TranscriptItemProps) {
+  const { t, locale } = useSettings();
   const showTopicDivider = data.topicChanged === true && !isInterim;
   const activeTier = data.aiTier ?? data.tier;
   const mainText = data.displayText ?? data.originalText;
@@ -45,7 +48,7 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
           <div className="flex-1 h-px bg-border" />
           <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full shrink-0">
             <ArrowRight className="w-3 h-3" />
-            주제 전환
+            {t('transcript.topic')}
           </span>
           <div className="flex-1 h-px bg-border" />
         </motion.div>
@@ -59,9 +62,9 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
         role={!isInterim ? 'button' : undefined}
         tabIndex={!isInterim ? 0 : undefined}
         aria-pressed={!isInterim ? isSelected : undefined}
-        aria-label={!isInterim ? `자막 블록: ${mainText}${isSelected ? ' (선택됨)' : ''}` : undefined}
+        aria-label={!isInterim ? `${t('transcript.block')}: ${mainText}${isSelected ? ` (${t('transcript.selected')})` : ''}` : undefined}
         className={cn(
-          "relative w-full p-4 rounded-2xl border border-border transition-all duration-200 bg-white",
+          "relative w-full p-4 rounded-2xl border border-border transition-all duration-200 bg-card",
           isInterim ? "opacity-60" : "",
           !isInterim && "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
           isSelected
@@ -69,17 +72,14 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
             : !isInterim && "hover:shadow-md hover:border-primary/20 hover:ring-1 hover:ring-primary/20"
         )}
       >
-        {/* Header row */}
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          {/* AI loading */}
           {data.aiLoading && !isInterim && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground" aria-label="AI 분석 중">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground" aria-label={t('transcript.ai')}>
               <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-              AI 분석 중...
+              {t('transcript.ai')}
             </span>
           )}
 
-          {/* Topic badge */}
           {!data.aiLoading && data.aiTopic && (
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
@@ -91,24 +91,21 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
             </motion.span>
           )}
 
-          {/* Tier badge (긴급/핵심 only) */}
           {!data.aiLoading && (activeTier === '긴급' || activeTier === '핵심') && (
             <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold", TIER_BADGE[activeTier])}>
-              {activeTier}
+              {translateTier(activeTier, locale)}
             </span>
           )}
 
-          {/* Medical terms count */}
           {hasTerms && !data.aiLoading && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100">
-              용어 {data.medical_terms!.length}개
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+              {t('transcript.terms')} {data.medical_terms!.length}
             </span>
           )}
 
-          {/* Interim indicator */}
           {isInterim && (
-            <span className="text-xs text-muted-foreground flex items-center animate-pulse" aria-label="인식 중">
-              <Edit2 className="w-3 h-3 mr-1" aria-hidden="true" /> 인식 중...
+            <span className="text-xs text-muted-foreground flex items-center animate-pulse" aria-label={t('transcript.recognizing')}>
+              <Edit2 className="w-3 h-3 mr-1" aria-hidden="true" /> {t('transcript.recognizing')}
             </span>
           )}
 
@@ -118,7 +115,6 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
           </span>
         </div>
 
-        {/* Main text */}
         <p className={cn(
           "leading-relaxed tracking-tight transition-all duration-300",
           isInterim
@@ -128,10 +124,9 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
           {mainText}
         </p>
 
-        {/* Original text (if AI refined) */}
         {!isInterim && data.displayText && data.displayText !== data.originalText && (
-          <p className="mt-1.5 text-xs text-muted-foreground/60 italic border-t border-black/5 pt-1.5">
-            원본: {data.originalText}
+          <p className="mt-1.5 text-xs text-muted-foreground/60 italic border-t border-border/30 pt-1.5">
+            {t('transcript.original')}: {data.originalText}
           </p>
         )}
       </motion.div>

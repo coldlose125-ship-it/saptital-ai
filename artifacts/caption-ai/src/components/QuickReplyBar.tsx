@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Volume2, Square } from 'lucide-react';
 import { speakText } from '@/lib/ai-service';
+import { useSettings } from '@/lib/settings-context';
 
 interface QuickReplyBarProps {
   replies: string[];
@@ -24,6 +25,7 @@ function SkeletonButton({ delay }: { delay: number }) {
 export function QuickReplyBar({ replies, isLoading = false, onReply }: QuickReplyBarProps) {
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   const mountedRef = useRef(true);
+  const { t } = useSettings();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -57,18 +59,18 @@ export function QuickReplyBar({ replies, isLoading = false, onReply }: QuickRepl
           exit={{ opacity: 0, y: 16 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
           role="region"
-          aria-label="빠른 답변 버튼"
-          className="bg-white border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-3 shrink-0"
+          aria-label={t('reply.region')}
+          className="bg-card border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-3 shrink-0"
         >
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-2 mb-2.5">
               <MessageSquare className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
               <span className="text-xs font-semibold text-muted-foreground">
                 {showSkeleton
-                  ? 'AI가 답변을 분석 중입니다...'
+                  ? t('reply.loading')
                   : speakingIdx !== null
-                    ? '음성 전달 중... (버튼을 다시 누르면 중지)'
-                    : '빠른 답변 — 클릭하면 음성으로 전달됩니다'}
+                    ? t('reply.speaking')
+                    : t('reply.hint')}
               </span>
               {showSkeleton
                 ? <span className="ml-auto flex gap-0.5" aria-hidden="true">
@@ -86,7 +88,7 @@ export function QuickReplyBar({ replies, isLoading = false, onReply }: QuickRepl
               }
             </div>
 
-            <div className="flex gap-2.5 flex-wrap" role={showReplies ? 'group' : undefined} aria-label={showReplies ? '음성 답변 선택' : undefined}>
+            <div className="flex gap-2.5 flex-wrap" role={showReplies ? 'group' : undefined} aria-label={showReplies ? t('reply.group') : undefined}>
               {showSkeleton ? (
                 <>
                   <SkeletonButton delay={0} />
@@ -103,7 +105,7 @@ export function QuickReplyBar({ replies, isLoading = false, onReply }: QuickRepl
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ delay: idx * 0.06 }}
                       onClick={() => handleClick(reply, idx)}
-                      aria-label={isSpeaking ? `"${reply}" 음성 중지` : `"${reply}" 음성으로 전달`}
+                      aria-label={isSpeaking ? `"${reply}" ${t('reply.stop')}` : `"${reply}" ${t('reply.speak')}`}
                       aria-pressed={isSpeaking}
                       className={[
                         'flex-1 min-w-[140px] flex items-center justify-center gap-2 font-semibold text-sm px-4 py-3 rounded-xl shadow-sm transition-all duration-200',

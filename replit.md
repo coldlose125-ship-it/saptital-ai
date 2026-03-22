@@ -30,10 +30,12 @@ pnpm workspace monorepo using TypeScript. The main product is **Sapital AI**, a 
 3. **Medical terms sidebar** — Desktop right panel, mobile bottom drawer with scroll
 4. **TTS quick-reply** — 3 AI-suggested replies with Korean voice priority selection, speaking state feedback
 5. **Font size controls** — 3 levels (표준/크게/매우 크게), desktop header + mobile bottom bar
-6. **Session export** — Copy to clipboard, PDF save, print — A4 formatted report
+6. **Session export** — Copy to clipboard, PDF save, print — A4 formatted report with XSS-safe HTML escaping
 7. **localStorage persistence** — Auto-save with quota overflow user warning
 8. **Delete confirmation** — Centered modal dialog with cancel/delete buttons + Escape key
 9. **Splash screen** — Branded 2.5s intro animation
+10. **Dark mode** — Full dark theme with CSS custom properties, toggle persisted to localStorage (`sapital_theme`)
+11. **Bilingual i18n** — Korean/English toggle via `SettingsProvider` context, all UI strings translated, persisted to localStorage (`sapital_locale`)
 
 ## Structure
 
@@ -54,7 +56,9 @@ artifacts/
 │       │   └── use-audio-devices.ts  # Audio device enumeration
 │       ├── lib/
 │       │   ├── ai-service.ts      # API calls + TTS engine with voice priority
-│       │   └── caption-engine.ts  # Keyword detection + scoring
+│       │   ├── caption-engine.ts  # Keyword detection + scoring
+│       │   ├── i18n.ts            # Translation strings (ko/en) + helper functions
+│       │   └── settings-context.tsx  # React context for theme (dark/light) + locale (ko/en)
 │       └── index.css              # Tailwind config + custom animations
 ├── api-server/           # Express 5 backend (port from PORT env)
 │   └── src/

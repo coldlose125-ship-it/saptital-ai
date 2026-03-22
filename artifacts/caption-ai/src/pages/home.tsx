@@ -10,13 +10,14 @@ import { AlertBar } from '@/components/AlertBar';
 import { MedicalTermsPanel } from '@/components/MedicalTermsPanel';
 import { QuickReplyBar } from '@/components/QuickReplyBar';
 import { ExportModal } from '@/components/ExportModal';
+import { useSettings } from '@/lib/settings-context';
+import { translateStatus, translateFontLabel, translateErrorMsg } from '@/lib/i18n';
 import {
   Mic, Square, Trash2, AlertCircle, ChevronDown, Stethoscope,
-  Activity, FileText, BookOpen, X, RefreshCw
+  Activity, FileText, BookOpen, X, RefreshCw, Moon, Sun, Globe
 } from 'lucide-react';
 
 const FONT_SIZES = ['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl'] as const;
-const FONT_LABELS = ['표준', '크게', '매우 크게'] as const;
 const STORAGE_KEY = 'sapital_session_v1';
 
 function loadSession() {
@@ -39,6 +40,8 @@ function loadSession() {
 const _s = loadSession();
 
 export default function Home() {
+  const { t, locale, theme, toggleTheme, toggleLocale } = useSettings();
+
   const [showSplash, setShowSplash] = useState(true);
   const [transcripts, setTranscripts] = useState<ProcessedTranscript[]>(_s?.transcripts ?? []);
   const [interimText, setInterimText] = useState<string>('');
@@ -217,7 +220,10 @@ export default function Home() {
     keywords: selectedTranscript.aiKeywords,
   } : null;
 
-  const isMicError = errorMsg?.includes('권한') || errorMsg?.includes('not-allowed');
+  const isMicError = errorMsg === 'speech.mic.denied' || errorMsg === 'speech.mic.denied2';
+
+  const translatedStatus = translateStatus(status, locale);
+  const translatedError = errorMsg ? translateErrorMsg(errorMsg, locale) : null;
 
   return (
     <>
@@ -227,7 +233,7 @@ export default function Home() {
         <AlertBar />
 
         {/* Header */}
-        <header role="banner" className="bg-white border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+        <header role="banner" className="bg-card border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="bg-primary p-2 rounded-xl shadow-inner" aria-hidden="true">
               <Stethoscope className="w-5 h-5 text-white" />
@@ -237,24 +243,46 @@ export default function Home() {
                 Sapital <span className="text-primary">AI</span>
               </h1>
               <p className="text-[10px] font-medium text-muted-foreground leading-tight mt-0.5">
-                청각장애인 병원 진료 맞춤 소통 서비스
+                {t('app.subtitle')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-            {/* Device selector — 모바일에서 숨김 */}
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              aria-label={t('settings.theme')}
+              className="p-2 sm:p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
+            >
+              {theme === 'dark'
+                ? <Sun className="w-4 h-4" aria-hidden="true" />
+                : <Moon className="w-4 h-4" aria-hidden="true" />
+              }
+            </button>
+
+            {/* Language toggle */}
+            <button
+              onClick={toggleLocale}
+              aria-label={t('settings.lang')}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors text-xs font-bold"
+            >
+              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">{locale === 'ko' ? 'EN' : '한'}</span>
+            </button>
+
+            {/* Device selector */}
             <div className="relative items-center hidden sm:flex">
               <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" aria-hidden="true" />
               <select
                 value={selectedDeviceId}
                 onChange={e => setSelectedDeviceId(e.target.value)}
                 disabled={isListening}
-                aria-label="마이크 기기 선택"
+                aria-label={t('mic.select')}
                 className="appearance-none pl-7 pr-6 py-2 text-xs font-medium bg-secondary border border-border rounded-xl text-foreground cursor-pointer hover:bg-muted transition-colors disabled:opacity-50 max-w-[160px]"
               >
                 {devices.length === 0
-                  ? <option value="default">기본 마이크</option>
+                  ? <option value="default">{t('mic.default')}</option>
                   : devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label}</option>)
                 }
               </select>
@@ -265,27 +293,27 @@ export default function Home() {
             <div
               role="status"
               aria-live="polite"
-              aria-label={`녹음 상태: ${status}`}
+              aria-label={`${t('status.label')}: ${translatedStatus}`}
               className="flex items-center gap-1.5"
             >
               <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
                 {isListening && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isListening ? 'bg-red-500' : 'bg-gray-300'}`} />
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isListening ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
               </span>
-              <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">{status}</span>
+              <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">{translatedStatus}</span>
             </div>
 
-            {/* 글자 크기 조절 */}
+            {/* Font size selector */}
             <div
               role="group"
-              aria-label="자막 글자 크기 선택"
+              aria-label={t('font.label')}
               className="hidden sm:flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5"
             >
               {([0, 1, 2] as const).map(level => (
                 <button
                   key={level}
                   onClick={() => setFontSizeLevel(level)}
-                  aria-label={`글자 크기 ${FONT_LABELS[level]}`}
+                  aria-label={`${t('font.size')} ${translateFontLabel(level, locale)}`}
                   aria-pressed={fontSizeLevel === level}
                   className={`px-2 py-1.5 rounded-lg text-xs font-extrabold transition-all leading-none ${
                     fontSizeLevel === level
@@ -294,47 +322,47 @@ export default function Home() {
                   }`}
                   style={{ fontSize: `${10 + level * 2}px` }}
                 >
-                  가
+                  {locale === 'ko' ? '가' : 'A'}
                 </button>
               ))}
             </div>
 
-            {/* 진료 기록 내보내기 */}
+            {/* Export button */}
             {transcripts.length > 0 && (
               <button
                 onClick={() => setShowExport(true)}
-                aria-label="오늘의 진료 기록 저장 및 내보내기"
-                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 sm:px-3 py-2 rounded-xl font-bold text-xs transition-colors"
+                aria-label={t('export.btn.aria')}
+                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 px-2.5 sm:px-3 py-2 rounded-xl font-bold text-xs transition-colors"
               >
                 <FileText className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">기록 저장</span>
+                <span className="hidden sm:inline">{t('export.btn')}</span>
               </button>
             )}
 
             {!isListening ? (
               <button
                 onClick={startListening}
-                aria-label="진료 시작 — 음성 인식을 시작합니다"
+                aria-label={t('btn.start.aria')}
                 className="flex items-center gap-1.5 sm:gap-2 bg-primary hover:bg-primary/90 text-white px-3 sm:px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Mic className="w-4 h-4" aria-hidden="true" />
-                <span className="hidden xs:inline">진료</span> 시작
+                <span className="hidden xs:inline">{locale === 'ko' ? '진료' : ''}</span> {t('btn.start')}
               </button>
             ) : (
               <button
                 onClick={stopListening}
-                aria-label="음성 인식 중지"
+                aria-label={t('btn.stop.aria')}
                 className="flex items-center gap-1.5 sm:gap-2 bg-destructive hover:bg-destructive/90 text-white px-3 sm:px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow animate-rec-ring"
               >
                 <Square className="w-4 h-4" aria-hidden="true" />
-                중지
+                {t('btn.stop')}
               </button>
             )}
 
             <button
               onClick={handleClearClick}
-              aria-label="자막 기록 전체 삭제"
-              title="전체 삭제"
+              aria-label={t('btn.clear.aria')}
+              title={t('btn.clear.title')}
               className="p-2 sm:p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
             >
               <Trash2 className="w-4 h-4" aria-hidden="true" />
@@ -342,7 +370,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ── 저장 공간 부족 경고 배너 ── */}
+        {/* Storage warning banner */}
         <AnimatePresence>
           {storageWarning && (
             <motion.div
@@ -351,14 +379,14 @@ export default function Home() {
               exit={{ opacity: 0, height: 0 }}
               role="alert"
               aria-live="polite"
-              className="mx-4 mt-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl flex items-center gap-2.5"
+              className="mx-4 mt-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400 rounded-xl flex items-center gap-2.5"
             >
               <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <p className="text-sm font-medium flex-1">저장 공간이 부족하여 자동 저장이 중단됐습니다. '기록 저장' 버튼으로 수동 저장하세요.</p>
+              <p className="text-sm font-medium flex-1">{t('warn.storage')}</p>
               <button
                 onClick={() => setStorageWarning(false)}
-                aria-label="경고 닫기"
-                className="p-1 rounded-lg hover:bg-amber-100 transition-colors shrink-0"
+                aria-label={t('warn.close')}
+                className="p-1 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shrink-0"
               >
                 <X className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
@@ -366,7 +394,7 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* ── 마이크 에러 배너 ── */}
+        {/* Mic error banner */}
         <AnimatePresence>
           {errorMsg && !errorDismissed && (
             <motion.div
@@ -375,14 +403,14 @@ export default function Home() {
               exit={{ opacity: 0, height: 0 }}
               role="alert"
               aria-live="assertive"
-              className="mx-4 mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-2.5"
+              className="mx-4 mt-3 p-3 bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 rounded-xl flex items-start gap-2.5"
             >
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{errorMsg}</p>
+                <p className="text-sm font-medium">{translatedError}</p>
                 {isMicError && (
-                  <p className="text-xs mt-1 text-red-500">
-                    주소창 왼쪽 🔒 아이콘 → 마이크 → 허용 후 새로고침하세요.
+                  <p className="text-xs mt-1 text-red-500 dark:text-red-400">
+                    {t('err.mic.hint')}
                   </p>
                 )}
               </div>
@@ -390,17 +418,17 @@ export default function Home() {
                 {isMicError && (
                   <button
                     onClick={() => { setErrorDismissed(true); startListening(); }}
-                    aria-label="마이크 권한 재요청"
-                    className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-800 bg-red-100 hover:bg-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                    aria-label={t('err.mic.retry.aria')}
+                    className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 px-2.5 py-1.5 rounded-lg transition-colors"
                   >
                     <RefreshCw className="w-3 h-3" aria-hidden="true" />
-                    재시도
+                    {t('err.mic.retry')}
                   </button>
                 )}
                 <button
                   onClick={() => setErrorDismissed(true)}
-                  aria-label="오류 메시지 닫기"
-                  className="p-1 rounded-lg hover:bg-red-100 transition-colors"
+                  aria-label={t('err.close')}
+                  className="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
@@ -409,7 +437,7 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* Main — flex-1, row layout */}
+        {/* Main */}
         <main className="flex-1 flex flex-col md:flex-row overflow-hidden" style={{ minHeight: 0 }}>
 
           {/* Left: Transcript history */}
@@ -418,14 +446,14 @@ export default function Home() {
               ref={scrollRef}
               role="log"
               aria-live="polite"
-              aria-label="자막 기록"
+              aria-label={t('caption.log')}
               aria-atomic="false"
               aria-busy={isAiLoading}
               className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth"
             >
               {transcripts.length === 0 ? (
                 <div
-                  aria-label="자막 없음. 진료 시작 버튼을 눌러 시작하세요"
+                  aria-label={t('caption.empty.aria')}
                   className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-16 opacity-60"
                 >
                   <div className={`rounded-full bg-primary/10 flex items-center justify-center mb-5 transition-all duration-300 ${
@@ -437,35 +465,35 @@ export default function Home() {
                   </div>
                   <p className={`font-bold mb-2 transition-all duration-300 ${
                     fontSizeLevel === 0 ? 'text-base' : fontSizeLevel === 1 ? 'text-xl' : 'text-2xl'
-                  }`}>아직 자막이 없습니다</p>
+                  }`}>{t('caption.empty.title')}</p>
                   <p className={`transition-all duration-300 ${
                     fontSizeLevel === 0 ? 'text-sm' : fontSizeLevel === 1 ? 'text-base' : 'text-lg'
-                  }`}>'진료 시작' 버튼을 눌러 의사의 말씀을 자막으로 확인하세요</p>
+                  }`}>{t('caption.empty.desc')}</p>
                 </div>
               ) : (
-                transcripts.map(t => (
+                transcripts.map(tr => (
                   <TranscriptItem
-                    key={t.id}
-                    data={t}
-                    isSelected={selectedId === t.id}
-                    onClick={() => setSelectedId(prev => prev === t.id ? null : t.id)}
+                    key={tr.id}
+                    data={tr}
+                    isSelected={selectedId === tr.id}
+                    onClick={() => setSelectedId(prev => prev === tr.id ? null : tr.id)}
                     fontSizeLevel={fontSizeLevel}
                   />
                 ))
               )}
 
               {summaryLoading && (
-                <div role="status" aria-label="AI 분석 중" className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2">
+                <div role="status" aria-label={t('ai.analyzing')} className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce" aria-hidden="true" />
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.15s]" aria-hidden="true" />
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.3s]" aria-hidden="true" />
-                  <span className="ml-1">AI 분석 중...</span>
+                  <span className="ml-1">{t('ai.analyzing')}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right: Medical Terms Sidebar — 데스크탑에서만 표시 */}
+          {/* Right: Medical Terms Sidebar */}
           <div className="hidden md:flex md:flex-col w-[320px] lg:w-[360px] shrink-0 overflow-hidden bg-card">
             <div className="flex-1 min-h-0 p-4">
               <MedicalTermsPanel
@@ -478,10 +506,10 @@ export default function Home() {
           </div>
         </main>
 
-        {/* ── 현재 발화 박스 (하단 고정) ── */}
+        {/* Current speech box */}
         <div
           className={`shrink-0 px-5 py-4 border-t-2 transition-colors duration-300 ${
-            interimText ? 'border-primary bg-primary/5' : 'border-border bg-white'
+            interimText ? 'border-primary bg-primary/5' : 'border-border bg-card'
           }`}
         >
           <div className="max-w-7xl mx-auto">
@@ -494,7 +522,7 @@ export default function Home() {
                 className={`text-xs font-bold tracking-wide uppercase ${interimText ? 'text-primary' : 'text-muted-foreground/50'}`}
                 aria-hidden="true"
               >
-                {interimText ? '실시간 음성 인식 중...' : '최근 발화'}
+                {interimText ? t('live.label.active') : t('live.label.idle')}
               </span>
               {interimText && (
                 <span className="flex gap-0.5 ml-1" aria-hidden="true">
@@ -513,29 +541,29 @@ export default function Home() {
               <p
                 aria-live="assertive"
                 aria-atomic="true"
-                aria-label={interimText ? `인식 중: ${interimText}` : `최근 발화: ${lastSpeaking || '없음'}`}
+                aria-label={interimText ? `${t('live.recognizing')}: ${interimText}` : `${t('live.last')}: ${lastSpeaking || t('live.none')}`}
                 className={`${FONT_SIZES[fontSizeLevel]} font-bold tracking-tight leading-snug transition-colors duration-300 ${
                   interimText ? 'text-primary' : 'text-foreground/60'
                 }`}
               >
-                {interimText || lastSpeaking || (isListening ? '말씀하세요...' : '의사 선생님의 말씀이 여기에 표시됩니다')}
+                {interimText || lastSpeaking || (isListening ? t('live.placeholder.listening') : t('live.placeholder.idle'))}
               </p>
             </div>
           </div>
         </div>
 
-        {/* 모바일 의학 용어 사전 FAB — md 미만에서만 표시 */}
-        <div className="md:hidden shrink-0 flex items-center justify-between px-4 py-2 bg-white border-t border-border/30">
+        {/* Mobile FAB bar */}
+        <div className="md:hidden shrink-0 flex items-center justify-between px-4 py-2 bg-card border-t border-border/30">
           <div
             role="group"
-            aria-label="자막 글자 크기 선택 (모바일)"
+            aria-label={t('mobile.font.label')}
             className="flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5"
           >
             {([0, 1, 2] as const).map(level => (
               <button
                 key={level}
                 onClick={() => setFontSizeLevel(level)}
-                aria-label={`글자 크기 ${FONT_LABELS[level]}`}
+                aria-label={`${t('font.size')} ${translateFontLabel(level, locale)}`}
                 aria-pressed={fontSizeLevel === level}
                 className={`px-2 py-1.5 rounded-lg text-xs font-extrabold transition-all leading-none ${
                   fontSizeLevel === level
@@ -544,18 +572,18 @@ export default function Home() {
                 }`}
                 style={{ fontSize: `${10 + level * 2}px` }}
               >
-                가
+                {locale === 'ko' ? '가' : 'A'}
               </button>
             ))}
           </div>
           <button
             onClick={() => setShowTermsDrawer(true)}
-            aria-label="의학 용어 사전 열기"
+            aria-label={t('mobile.terms.open')}
             aria-haspopup="dialog"
             className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors"
           >
             <BookOpen className="w-4 h-4" aria-hidden="true" />
-            용어 사전
+            {t('mobile.terms.btn')}
             {globalTerms.length > 0 && (
               <span className="bg-primary text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">
                 {globalTerms.length}
@@ -564,15 +592,14 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 추천 답변 버튼 */}
+        {/* Quick reply buttons */}
         <QuickReplyBar replies={suggestedReplies} isLoading={isAiLoading && suggestedReplies.length === 0} />
       </div>
 
-      {/* 모바일 의학 용어 사전 Bottom Drawer */}
+      {/* Mobile terms drawer */}
       <AnimatePresence>
         {showTermsDrawer && (
           <>
-            {/* Backdrop */}
             <motion.div
               key="drawer-backdrop"
               initial={{ opacity: 0 }}
@@ -582,29 +609,27 @@ export default function Home() {
               className="fixed inset-0 bg-black/40 z-40 md:hidden"
               aria-hidden="true"
             />
-            {/* Drawer */}
             <motion.div
               key="drawer-panel"
               role="dialog"
               aria-modal="true"
-              aria-label="의학 용어 사전"
+              aria-label={t('mobile.terms.title')}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl md:hidden flex flex-col"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl shadow-2xl md:hidden flex flex-col"
               style={{ maxHeight: '70vh' }}
             >
-              {/* Drawer handle */}
               <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-1 bg-muted-foreground/30 rounded-full absolute left-1/2 -translate-x-1/2 top-3" aria-hidden="true" />
                   <BookOpen className="w-4 h-4 text-primary mt-1" aria-hidden="true" />
-                  <h2 className="text-sm font-bold text-foreground mt-1">의학 용어 사전</h2>
+                  <h2 className="text-sm font-bold text-foreground mt-1">{t('mobile.terms.title')}</h2>
                 </div>
                 <button
                   onClick={() => setShowTermsDrawer(false)}
-                  aria-label="의학 용어 사전 닫기"
+                  aria-label={t('mobile.terms.close')}
                   className="p-2 rounded-xl hover:bg-muted transition-colors"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
@@ -623,7 +648,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* 진료 기록 내보내기 모달 */}
+      {/* Export modal */}
       <ExportModal
         open={showExport}
         onClose={() => setShowExport(false)}
@@ -633,7 +658,7 @@ export default function Home() {
         sessionStart={sessionStartRef.current}
       />
 
-      {/* ── 삭제 확인 모달 ── */}
+      {/* Delete confirmation modal */}
       <AnimatePresence>
         {confirmClear && (
           <motion.div
@@ -652,32 +677,32 @@ export default function Home() {
               exit={{ scale: 0.92, opacity: 0, y: 10 }}
               transition={{ type: 'spring', stiffness: 380, damping: 30 }}
               onClick={e => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4"
+              className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4"
             >
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5 text-red-500" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 id="clear-dialog-title" className="text-base font-bold text-foreground">자막 기록 삭제</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">지금까지의 대화 기록이 모두 삭제됩니다.</p>
+                  <h2 id="clear-dialog-title" className="text-base font-bold text-foreground">{t('clear.title')}</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">{t('clear.desc')}</p>
                 </div>
               </div>
               <p className="text-sm text-foreground bg-muted/50 rounded-xl px-4 py-3">
-                삭제된 내용은 복구할 수 없습니다. 계속 진행하시겠습니까?
+                {t('clear.confirm')}
               </p>
               <div className="flex gap-2 mt-1">
                 <button
                   onClick={() => setConfirmClear(false)}
                   className="flex-1 py-3 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors"
                 >
-                  취소
+                  {t('clear.cancel')}
                 </button>
                 <button
                   onClick={handleClear}
                   className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors"
                 >
-                  삭제
+                  {t('clear.delete')}
                 </button>
               </div>
             </motion.div>
