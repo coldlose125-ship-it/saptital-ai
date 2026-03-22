@@ -153,7 +153,7 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-lg font-extrabold tracking-tight text-foreground leading-none">
-                Saptital <span className="text-primary">ai</span>
+                Sapital <span className="text-primary">AI</span>
               </h1>
               <p className="text-[10px] font-medium text-muted-foreground leading-tight mt-0.5">
                 청각장애인 병원 진료 맞춤 소통 서비스
