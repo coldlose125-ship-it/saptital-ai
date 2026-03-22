@@ -49,12 +49,42 @@ export async function summarizeTexts(transcripts: string[]): Promise<SummarizeRe
   }
 }
 
+let _voicesLoaded = false;
+
 export function speakText(text: string) {
   if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'ko-KR';
-  utterance.rate = 0.9;
-  utterance.pitch = 1.0;
-  window.speechSynthesis.speak(utterance);
+
+  const doSpeak = () => {
+    window.speechSynthesis.cancel();
+    // Small delay so cancel() fully clears the queue before we enqueue the new utterance
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.92;
+      utterance.pitch = 1.05;
+      utterance.volume = 1.0;
+
+      // Prefer a native Korean voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const koVoice =
+        voices.find(v => v.lang === 'ko-KR' && v.localService) ??
+        voices.find(v => v.lang === 'ko-KR') ??
+        voices.find(v => v.lang.startsWith('ko'));
+      if (koVoice) utterance.voice = koVoice;
+
+      window.speechSynthesis.speak(utterance);
+    }, 80);
+  };
+
+  // Voices may not be loaded on first call — wait for them
+  if (_voicesLoaded || window.speechSynthesis.getVoices().length > 0) {
+    _voicesLoaded = true;
+    doSpeak();
+  } else {
+    window.speechSynthesis.onvoiceschanged = () => {
+      _voicesLoaded = true;
+      doSpeak();
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }
 }

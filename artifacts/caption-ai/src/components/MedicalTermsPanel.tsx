@@ -10,7 +10,6 @@ interface SelectedBlock {
   topic?: string;
   displayText?: string;
   originalText: string;
-  sentiment?: 'positive' | 'neutral' | 'negative';
   medical_terms?: MedicalTerm[];
   keywords?: string[];
 }
@@ -22,12 +21,6 @@ interface MedicalTermsPanelProps {
   onClearSelection: () => void;
 }
 
-const sentimentConfig = {
-  positive: { label: '안심 😊', color: 'text-green-700 bg-green-50 border-green-200' },
-  neutral:  { label: '일반 😐', color: 'text-blue-700 bg-blue-50 border-blue-200' },
-  negative: { label: '주의 ⚠️', color: 'text-orange-700 bg-orange-50 border-orange-200' },
-};
-
 function TermCard({ term, explanation }: MedicalTerm) {
   return (
     <motion.div
@@ -37,9 +30,8 @@ function TermCard({ term, explanation }: MedicalTerm) {
       className="bg-white rounded-xl border border-blue-100 p-3.5 shadow-sm hover:shadow-md transition-shadow"
     >
       <div className="flex items-start gap-3">
-        {/* Icon placeholder */}
         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-          <FlaskConical className="w-4.5 h-4.5 text-primary" />
+          <FlaskConical className="w-4 h-4 text-primary" />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-bold text-primary truncate">{term}</p>
@@ -54,7 +46,6 @@ export function MedicalTermsPanel({ selectedBlock, globalTerms, globalKeywords, 
   const terms = selectedBlock?.medical_terms ?? globalTerms;
   const keywords = selectedBlock?.keywords ?? globalKeywords;
   const isBlockSelected = selectedBlock !== null;
-  const sentiment = selectedBlock?.sentiment;
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -82,19 +73,7 @@ export function MedicalTermsPanel({ selectedBlock, globalTerms, globalKeywords, 
         )}
       </div>
 
-      {/* Sentiment badge (only for selected block) */}
-      {isBlockSelected && sentiment && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold ${sentimentConfig[sentiment].color}`}
-        >
-          <span>감정 분석</span>
-          <span className="ml-auto">{sentimentConfig[sentiment].label}</span>
-        </motion.div>
-      )}
-
-      {/* Medical terms */}
+      {/* Medical terms list */}
       <div className="flex-1 overflow-y-auto space-y-2.5">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2">
           <BookOpen className="w-3.5 h-3.5" />

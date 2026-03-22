@@ -17,27 +17,6 @@ interface TranscriptItemProps {
   onClick?: () => void;
 }
 
-const SENTIMENT_STYLES = {
-  positive: {
-    cls: 'sentiment-positive',
-    emoji: '😊',
-    label: '안심',
-    badgeCls: 'bg-green-100 text-green-700',
-  },
-  neutral: {
-    cls: 'sentiment-neutral',
-    emoji: '😐',
-    label: '',
-    badgeCls: 'bg-blue-100 text-blue-700',
-  },
-  negative: {
-    cls: 'sentiment-negative',
-    emoji: '⚠️',
-    label: '주의',
-    badgeCls: 'bg-orange-100 text-orange-700',
-  },
-};
-
 const TIER_BADGE: Record<string, string> = {
   긴급: 'bg-red-500 text-white',
   핵심: 'bg-orange-400 text-white',
@@ -46,8 +25,6 @@ const TIER_BADGE: Record<string, string> = {
 };
 
 export function TranscriptItem({ data, isInterim = false, isSelected = false, onClick }: TranscriptItemProps) {
-  const sentiment = data.sentiment ?? 'neutral';
-  const sentimentStyle = SENTIMENT_STYLES[sentiment] ?? SENTIMENT_STYLES.neutral;
   const showTopicDivider = data.topicChanged === true && !isInterim;
   const activeTier = data.aiTier ?? data.tier;
   const mainText = data.displayText ?? data.originalText;
@@ -75,21 +52,16 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onClick={!isInterim ? onClick : undefined}
         className={cn(
-          "relative w-full p-4 rounded-2xl border-l-4 transition-all duration-200",
-          isInterim ? "opacity-60 border-gray-300 bg-gray-50" : sentimentStyle.cls,
+          "relative w-full p-4 rounded-2xl border border-border transition-all duration-200 bg-white",
+          isInterim ? "opacity-60" : "",
           !isInterim && "cursor-pointer",
           isSelected
-            ? "ring-2 ring-primary ring-offset-2 shadow-lg"
-            : !isInterim && "hover:shadow-md hover:ring-1 hover:ring-primary/30 hover:ring-offset-1"
+            ? "ring-2 ring-primary ring-offset-2 shadow-lg border-primary/30"
+            : !isInterim && "hover:shadow-md hover:border-primary/20 hover:ring-1 hover:ring-primary/20"
         )}
       >
-        {/* Header */}
+        {/* Header row */}
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          {/* Sentiment emoji (only after AI done) */}
-          {!isInterim && !data.aiLoading && (
-            <span className="text-base leading-none">{sentimentStyle.emoji}</span>
-          )}
-
           {/* AI loading */}
           {data.aiLoading && !isInterim && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -110,14 +82,14 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
             </motion.span>
           )}
 
-          {/* Tier badge (핵심/긴급 only) */}
-          {!data.aiLoading && activeTier !== '일반' && activeTier !== '중요' && TIER_BADGE[activeTier] && (
+          {/* Tier badge (긴급/핵심 only) */}
+          {!data.aiLoading && (activeTier === '긴급' || activeTier === '핵심') && (
             <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold", TIER_BADGE[activeTier])}>
               {activeTier}
             </span>
           )}
 
-          {/* Medical terms indicator */}
+          {/* Medical terms count */}
           {hasTerms && !data.aiLoading && (
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100">
               용어 {data.medical_terms!.length}개
@@ -145,7 +117,7 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
           {mainText}
         </p>
 
-        {/* Original text (if AI-refined version differs) */}
+        {/* Original text (if AI refined) */}
         {!isInterim && data.displayText && data.displayText !== data.originalText && (
           <p className="mt-1.5 text-xs text-muted-foreground/60 italic border-t border-black/5 pt-1.5">
             원본: {data.originalText}

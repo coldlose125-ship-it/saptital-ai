@@ -131,7 +131,6 @@ export default function Home() {
     topic: selectedTranscript.aiTopic,
     displayText: selectedTranscript.displayText,
     originalText: selectedTranscript.originalText,
-    sentiment: selectedTranscript.sentiment,
     medical_terms: selectedTranscript.medical_terms,
     keywords: selectedTranscript.aiKeywords,
   } : null;

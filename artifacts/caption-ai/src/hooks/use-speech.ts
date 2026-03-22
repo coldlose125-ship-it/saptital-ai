@@ -11,6 +11,20 @@ export type SpeechStatus = '대기 중' | '녹음 중' | '처리 중' | '오류 
 
 const SILENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
+// ── Sentence boundary detection ──────────────────────────────
+// Flush the buffer when the accumulated text ends with a Korean
+// sentence-final ending OR reaches a length limit.
+const SENTENCE_END_RE = /[다요죠까음][.!?]?\s*$|[.!?。]\s*$/;
+const SENTENCE_FORCE_LEN = 160; // force flush after this many chars
+const SENTENCE_IDLE_MS  = 3500; // flush if no new speech for this long
+
+function isSentenceEnd(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  return SENTENCE_END_RE.test(t) || t.length >= SENTENCE_FORCE_LEN;
+}
+// ─────────────────────────────────────────────────────────────
+
 export function useSpeechRecognition(
   onResult: (text: string, isFinal: boolean) => void,
   onDebugLog?: (msg: string) => void,
@@ -21,15 +35,19 @@ export function useSpeechRecognition(
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef      = useRef<any>(null);
   const isManuallyStoppedRef = useRef(false);
-  const isListeningRef = useRef(false);
-  const activeStreamRef = useRef<MediaStream | null>(null);
-  const onResultRef = useRef(onResult);
-  const onDebugRef = useRef(onDebugLog);
-  const deviceIdRef = useRef(deviceId);
-  const lastSpeechTimeRef = useRef<number>(Date.now());
-  const silenceWatchdogRef = useRef<NodeJS.Timeout | null>(null);
+  const isListeningRef      = useRef(false);
+  const activeStreamRef     = useRef<MediaStream | null>(null);
+  const onResultRef         = useRef(onResult);
+  const onDebugRef          = useRef(onDebugLog);
+  const deviceIdRef         = useRef(deviceId);
+  const lastSpeechTimeRef   = useRef<number>(Date.now());
+  const silenceWatchdogRef  = useRef<NodeJS.Timeout | null>(null);
+
+  // Sentence-buffer refs
+  const sentenceBufferRef   = useRef<string>('');
+  const idleFlushTimerRef   = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
   useEffect(() => { onResultRef.current = onResult; }, [onResult]);
@@ -40,7 +58,35 @@ export function useSpeechRecognition(
     onDebugRef.current?.(msg);
   };
 
-  // Start / clear the 5-minute silence watchdog
+  // ── Flush accumulated sentence buffer ──────────────────────
+  const flushBuffer = useCallback((force = false) => {
+    if (idleFlushTimerRef.current) {
+      clearTimeout(idleFlushTimerRef.current);
+      idleFlushTimerRef.current = null;
+    }
+    const buf = sentenceBufferRef.current.trim();
+    if (!buf) return;
+    if (force || isSentenceEnd(buf)) {
+      sentenceBufferRef.current = '';
+      log(`문장 완성 flush: "${buf}"`);
+      onResultRef.current(buf, true);
+    }
+  }, []);
+
+  // Schedule idle flush (fires if no new speech arrives soon)
+  const scheduleIdleFlush = useCallback(() => {
+    if (idleFlushTimerRef.current) clearTimeout(idleFlushTimerRef.current);
+    idleFlushTimerRef.current = setTimeout(() => {
+      const buf = sentenceBufferRef.current.trim();
+      if (buf) {
+        sentenceBufferRef.current = '';
+        log(`idle flush: "${buf}"`);
+        onResultRef.current(buf, true);
+      }
+    }, SENTENCE_IDLE_MS);
+  }, []);
+  // ──────────────────────────────────────────────────────────
+
   const startSilenceWatchdog = useCallback(() => {
     if (silenceWatchdogRef.current) clearInterval(silenceWatchdogRef.current);
     lastSpeechTimeRef.current = Date.now();
@@ -62,7 +108,7 @@ export function useSpeechRecognition(
           silenceWatchdogRef.current = null;
         }
       }
-    }, 30_000); // check every 30 seconds
+    }, 30_000);
   }, []);
 
   const stopSilenceWatchdog = useCallback(() => {
@@ -74,7 +120,6 @@ export function useSpeechRecognition(
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
     if (!SpeechRecognition) {
       setSupported(false);
       setStatus('지원하지 않음');
@@ -86,9 +131,9 @@ export function useSpeechRecognition(
     log('SpeechRecognition API 감지됨');
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous     = true;
     recognition.interimResults = true;
-    recognition.lang = 'ko-KR';
+    recognition.lang           = 'ko-KR';
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -100,28 +145,22 @@ export function useSpeechRecognition(
     };
 
     recognition.onsoundstart = () => log('onsoundstart: 소리 감지됨');
-
     recognition.onspeechstart = () => {
       log('onspeechstart: 음성 감지됨');
       lastSpeechTimeRef.current = Date.now();
     };
-
     recognition.onspeechend = () => log('onspeechend: 음성 종료됨');
-    recognition.onsoundend = () => log('onsoundend: 소리 종료됨');
+    recognition.onsoundend  = () => log('onsoundend: 소리 종료됨');
 
     recognition.onresult = (event: any) => {
-      log(`onresult: resultIndex=${event.resultIndex}, results.length=${event.results.length}`);
-      lastSpeechTimeRef.current = Date.now(); // any speech resets the silence timer
+      lastSpeechTimeRef.current = Date.now();
+
       let interimTranscript = '';
-      let finalTranscript = '';
+      let finalTranscript   = '';
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const transcript = event.results[i][0]?.transcript ?? '';
-        const confidence = event.results[i][0]?.confidence ?? 0;
-        const isFinal = event.results[i].isFinal;
-        log(`  result[${i}]: isFinal=${isFinal}, confidence=${confidence.toFixed(2)}, text="${transcript}"`);
-
-        if (isFinal) {
+        if (event.results[i].isFinal) {
           finalTranscript += transcript;
         } else {
           interimTranscript += transcript;
@@ -129,27 +168,36 @@ export function useSpeechRecognition(
       }
 
       if (finalTranscript.trim()) {
-        log(`최종 결과: "${finalTranscript.trim()}"`);
-        setStatus('녹음 중');
-        onResultRef.current(finalTranscript.trim(), true);
+        // Accumulate into sentence buffer
+        sentenceBufferRef.current =
+          (sentenceBufferRef.current + ' ' + finalTranscript.trim()).trim();
+
+        log(`버퍼 누적: "${sentenceBufferRef.current}"`);
+
+        if (isSentenceEnd(sentenceBufferRef.current)) {
+          // Sentence complete — emit as final and clear buffer
+          flushBuffer(true);
+          setStatus('녹음 중');
+        } else {
+          // Not yet a full sentence — show as interim and wait
+          onResultRef.current(sentenceBufferRef.current, false);
+          scheduleIdleFlush();
+          setStatus('처리 중');
+        }
       } else if (interimTranscript.trim()) {
-        log(`중간 결과: "${interimTranscript.trim()}"`);
+        // Merge buffer prefix with current interim for display
+        const display = sentenceBufferRef.current
+          ? sentenceBufferRef.current + ' ' + interimTranscript.trim()
+          : interimTranscript.trim();
         setStatus('처리 중');
-        onResultRef.current(interimTranscript.trim(), false);
+        onResultRef.current(display.trim(), false);
       }
     };
 
     recognition.onerror = (event: any) => {
       log(`onerror: ${event.error}`);
-
-      if (event.error === 'no-speech') {
-        log('no-speech: 무음 타임아웃 — onend에서 재시작 예정');
-        return;
-      }
-      if (event.error === 'audio-capture') {
-        log('audio-capture: 오디오 캡처 오류 — onend에서 재시작 예정');
-        return;
-      }
+      if (event.error === 'no-speech' || event.error === 'audio-capture') return;
+      if (event.error === 'aborted') { log('aborted (정상)'); return; }
 
       isListeningRef.current = false;
       setIsListening(false);
@@ -159,10 +207,7 @@ export function useSpeechRecognition(
       if (event.error === 'not-allowed') {
         setErrorMsg('마이크 권한이 없습니다. 브라우저 주소창의 마이크 아이콘을 클릭해 권한을 허용하세요.');
       } else if (event.error === 'network') {
-        setErrorMsg('네트워크 오류: 인터넷 연결을 확인해주세요. (Google 음성인식은 인터넷 연결 필요)');
-      } else if (event.error === 'aborted') {
-        log('aborted: 중단됨 (정상)');
-        return;
+        setErrorMsg('네트워크 오류: 인터넷 연결을 확인해주세요.');
       } else {
         setErrorMsg(`오류: ${event.error}`);
       }
@@ -172,10 +217,10 @@ export function useSpeechRecognition(
       log(`onend: manuallyStopped=${isManuallyStoppedRef.current}`);
 
       if (!isManuallyStoppedRef.current) {
-        // Check if 5 minutes of silence has elapsed across all restart cycles
         const silentMs = Date.now() - lastSpeechTimeRef.current;
         if (silentMs >= SILENCE_TIMEOUT_MS) {
           log(`onend: ${Math.round(silentMs / 1000)}s 무음 초과 — 자동 중지`);
+          flushBuffer(true); // flush any partial sentence
           isListeningRef.current = false;
           setIsListening(false);
           setStatus('대기 중');
@@ -200,6 +245,7 @@ export function useSpeechRecognition(
           }
         }, 300);
       } else {
+        flushBuffer(true); // flush remaining partial sentence on manual stop
         isListeningRef.current = false;
         setIsListening(false);
         setStatus('대기 중');
@@ -215,48 +261,39 @@ export function useSpeechRecognition(
       log('cleanup: 인식기 정리');
       isManuallyStoppedRef.current = true;
       stopSilenceWatchdog();
+      if (idleFlushTimerRef.current) clearTimeout(idleFlushTimerRef.current);
       try { recognition.stop(); } catch (_) {}
     };
-  }, [stopSilenceWatchdog]);
+  }, [stopSilenceWatchdog, flushBuffer, scheduleIdleFlush]);
 
   const startListening = useCallback(async () => {
     setErrorMsg(null);
-    if (!recognitionRef.current) {
-      log('startListening: recognitionRef 없음');
-      return;
-    }
-    if (isListeningRef.current) {
-      log('startListening: 이미 녹음 중');
-      return;
-    }
+    sentenceBufferRef.current = ''; // reset buffer on new session
+    if (!recognitionRef.current) return;
+    if (isListeningRef.current) return;
 
     try {
       const dId = deviceIdRef.current;
       const audioConstraint: MediaTrackConstraints = dId && dId !== 'default'
         ? { deviceId: { exact: dId } }
         : true as any;
-      log(`getUserMedia 시도: deviceId=${dId ?? 'default'}`);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
       activeStreamRef.current = stream;
-      log('getUserMedia 성공 — 음성 인식 시작');
-    } catch (e: any) {
-      log(`getUserMedia 실패: ${e?.message} — 기본 장치로 시도`);
+    } catch {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         activeStreamRef.current = stream;
       } catch (e2: any) {
         setErrorMsg('마이크 권한이 없습니다. 브라우저 주소창에서 마이크 권한을 허용해주세요.');
-        log(`getUserMedia 완전 실패: ${e2?.message}`);
         return;
       }
     }
 
     try {
       isManuallyStoppedRef.current = false;
-      lastSpeechTimeRef.current = Date.now(); // reset silence timer on manual start
+      lastSpeechTimeRef.current = Date.now();
       startSilenceWatchdog();
       recognitionRef.current.start();
-      log('startListening: start() 호출됨');
     } catch (e: any) {
       log(`startListening: 실패 — ${e?.message}`);
     }
@@ -266,9 +303,8 @@ export function useSpeechRecognition(
     if (!recognitionRef.current) return;
     isManuallyStoppedRef.current = true;
     stopSilenceWatchdog();
-    try {
-      recognitionRef.current.stop();
-    } catch (_) {}
+    if (idleFlushTimerRef.current) clearTimeout(idleFlushTimerRef.current);
+    try { recognitionRef.current.stop(); } catch (_) {}
     if (activeStreamRef.current) {
       activeStreamRef.current.getTracks().forEach(t => t.stop());
       activeStreamRef.current = null;
@@ -276,7 +312,6 @@ export function useSpeechRecognition(
     isListeningRef.current = false;
     setIsListening(false);
     setStatus('대기 중');
-    log('stopListening: 중지됨');
   }, [stopSilenceWatchdog]);
 
   return { isListening, status, errorMsg, supported, startListening, stopListening };
