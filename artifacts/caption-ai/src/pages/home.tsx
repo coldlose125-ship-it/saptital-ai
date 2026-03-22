@@ -93,7 +93,7 @@ export default function Home() {
     }, 4000);
   }, []);
 
-  const { isListening, status, errorMsg, supported, startListening, stopListening } = useSpeechRecognition(
+  const { isListening, status, errorMsg, startListening, stopListening } = useSpeechRecognition(
     (text, isFinal) => {
       if (isFinal) {
         const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true };
@@ -225,12 +225,7 @@ export default function Home() {
               </button>
             )}
 
-            {!supported ? (
-              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-semibold">
-                <AlertCircle className="w-3.5 h-3.5" />
-                Chrome 필요
-              </div>
-            ) : !isListening ? (
+            {!isListening ? (
               <button
                 onClick={startListening}
                 className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
@@ -277,12 +272,19 @@ export default function Home() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth">
               {transcripts.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-16 opacity-60">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
-                    <Stethoscope className="w-10 h-10 text-primary/40" />
+                  <div className={`rounded-full bg-primary/10 flex items-center justify-center mb-5 transition-all duration-300 ${
+                    fontSizeLevel === 0 ? 'w-20 h-20' : fontSizeLevel === 1 ? 'w-28 h-28' : 'w-36 h-36'
+                  }`}>
+                    <Stethoscope className={`text-primary/40 transition-all duration-300 ${
+                      fontSizeLevel === 0 ? 'w-10 h-10' : fontSizeLevel === 1 ? 'w-14 h-14' : 'w-20 h-20'
+                    }`} />
                   </div>
-                  <p className="text-base font-bold mb-1">아직 자막이 없습니다</p>
-                  <p className="text-sm">'진료 시작' 버튼을 눌러 의사의 말씀을 자막으로 확인하세요</p>
-                  <p className="text-xs mt-3 text-muted-foreground/60">Chrome 브라우저에서만 작동합니다</p>
+                  <p className={`font-bold mb-2 transition-all duration-300 ${
+                    fontSizeLevel === 0 ? 'text-base' : fontSizeLevel === 1 ? 'text-xl' : 'text-2xl'
+                  }`}>아직 자막이 없습니다</p>
+                  <p className={`transition-all duration-300 ${
+                    fontSizeLevel === 0 ? 'text-sm' : fontSizeLevel === 1 ? 'text-base' : 'text-lg'
+                  }`}>'진료 시작' 버튼을 눌러 의사의 말씀을 자막으로 확인하세요</p>
                 </div>
               ) : (
                 transcripts.map(t => (
