@@ -16,24 +16,46 @@ import {
 
 const FONT_SIZES = ['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl'] as const;
 const FONT_LABELS = ['표준', '크게', '매우\n크게'] as const;
+const STORAGE_KEY = 'sapital_session_v1';
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // timestamp는 ISO string → Date 복원, aiLoading은 false로 초기화
+    data.transcripts = (data.transcripts ?? []).map((t: ProcessedTranscript & { timestamp: string }) => ({
+      ...t,
+      timestamp: new Date(t.timestamp),
+      aiLoading: false,
+    }));
+    data.sessionStart = data.sessionStart ? new Date(data.sessionStart) : new Date();
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// 세션 데이터를 모듈 로드 시 1회만 읽음
+const _s = loadSession();
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
-  const [transcripts, setTranscripts] = useState<ProcessedTranscript[]>([]);
+  const [transcripts, setTranscripts] = useState<ProcessedTranscript[]>(_s?.transcripts ?? []);
   const [interimText, setInterimText] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [globalTerms, setGlobalTerms] = useState<MedicalTerm[]>([]);
-  const [globalKeywords, setGlobalKeywords] = useState<string[]>([]);
-  const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
+  const [globalTerms, setGlobalTerms] = useState<MedicalTerm[]>(_s?.globalTerms ?? []);
+  const [globalKeywords, setGlobalKeywords] = useState<string[]>(_s?.globalKeywords ?? []);
+  const [suggestedReplies, setSuggestedReplies] = useState<string[]>(_s?.suggestedReplies ?? []);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [lastSpeaking, setLastSpeaking] = useState<string>('');
+  const [lastSpeaking, setLastSpeaking] = useState<string>(_s?.lastSpeaking ?? '');
   const [fontSizeLevel, setFontSizeLevel] = useState<0 | 1 | 2>(0);
   const [showExport, setShowExport] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSummarizedCountRef = useRef(0);
-  const sessionStartRef = useRef<Date>(new Date());
+  const lastSummarizedCountRef = useRef(_s?.transcripts?.length ?? 0);
+  const sessionStartRef = useRef<Date>(_s?.sessionStart ?? new Date());
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
@@ -131,7 +153,25 @@ export default function Home() {
     lastSummarizedCountRef.current = 0;
     sessionStartRef.current = new Date();
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+    localStorage.removeItem(STORAGE_KEY);
   };
+
+  // 세션 자동 저장 — 새로고침 후에도 복원
+  useEffect(() => {
+    if (transcripts.length === 0) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        transcripts,
+        globalTerms,
+        globalKeywords,
+        suggestedReplies,
+        lastSpeaking,
+        sessionStart: sessionStartRef.current.toISOString(),
+      }));
+    } catch {
+      // localStorage 용량 초과 시 조용히 무시
+    }
+  }, [transcripts, globalTerms, globalKeywords, suggestedReplies, lastSpeaking]);
 
   const selectedTranscript = selectedId ? transcripts.find(t => t.id === selectedId) ?? null : null;
 
