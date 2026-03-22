@@ -52,6 +52,9 @@ export default function Home() {
   const [showExport, setShowExport] = useState(false);
   const [showTermsDrawer, setShowTermsDrawer] = useState(false);
   const [errorDismissed, setErrorDismissed] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [storageWarning, setStorageWarning] = useState(false);
+  const confirmClearTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -151,6 +154,7 @@ export default function Home() {
   useEffect(() => {
     return () => {
       if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+      if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current);
     };
   }, []);
 
@@ -162,6 +166,8 @@ export default function Home() {
 
   const handleClear = () => {
     sessionIdRef.current += 1;
+    setConfirmClear(false);
+    if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current);
     setTranscripts([]);
     setInterimText('');
     setSelectedId(null);
@@ -173,6 +179,15 @@ export default function Home() {
     sessionStartRef.current = new Date();
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
     localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const handleClearClick = () => {
+    if (confirmClear) {
+      handleClear();
+    } else {
+      setConfirmClear(true);
+      confirmClearTimerRef.current = setTimeout(() => setConfirmClear(false), 3000);
+    }
   };
 
   useEffect(() => {
@@ -187,7 +202,7 @@ export default function Home() {
         sessionStart: sessionStartRef.current.toISOString(),
       }));
     } catch {
-      // localStorage 용량 초과 시 조용히 무시
+      setStorageWarning(true);
     }
   }, [transcripts, globalTerms, globalKeywords, suggestedReplies, lastSpeaking]);
 
@@ -315,15 +330,51 @@ export default function Home() {
               </button>
             )}
 
-            <button
-              onClick={handleClear}
-              aria-label="자막 기록 전체 삭제"
-              className="p-2.5 bg-secondary hover:bg-muted text-secondary-foreground rounded-xl transition-colors"
-            >
-              <Trash2 className="w-4 h-4" aria-hidden="true" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={handleClearClick}
+                aria-label={confirmClear ? "한 번 더 누르면 전체 삭제됩니다" : "자막 기록 전체 삭제"}
+                title={confirmClear ? "한 번 더 누르면 삭제됩니다" : "전체 삭제"}
+                className={`p-2.5 rounded-xl transition-all duration-200 ${
+                  confirmClear
+                    ? 'bg-red-500 text-white animate-rec-ring'
+                    : 'bg-secondary hover:bg-muted text-secondary-foreground'
+                }`}
+              >
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
+              </button>
+              {confirmClear && (
+                <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-md pointer-events-none">
+                  한 번 더 누르면 삭제
+                </span>
+              )}
+            </div>
           </div>
         </header>
+
+        {/* ── 저장 공간 부족 경고 배너 ── */}
+        <AnimatePresence>
+          {storageWarning && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              role="alert"
+              aria-live="polite"
+              className="mx-4 mt-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl flex items-center gap-2.5"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <p className="text-sm font-medium flex-1">저장 공간이 부족하여 자동 저장이 중단됐습니다. '기록 저장' 버튼으로 수동 저장하세요.</p>
+              <button
+                onClick={() => setStorageWarning(false)}
+                aria-label="경고 닫기"
+                className="p-1 rounded-lg hover:bg-amber-100 transition-colors shrink-0"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── 마이크 에러 배너 ── */}
         <AnimatePresence>

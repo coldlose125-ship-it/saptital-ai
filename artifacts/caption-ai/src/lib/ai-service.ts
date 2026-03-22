@@ -132,7 +132,11 @@ export async function speakText(text: string): Promise<void> {
   const voice = pickKoreanVoice(voices);
   if (voice) utterance.voice = voice;
 
-  window.speechSynthesis.speak(utterance);
+  return new Promise<void>(resolve => {
+    utterance.onend   = () => resolve();
+    utterance.onerror = () => resolve();
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 // 페이지 로드 즉시 음성 목록 프리로드 (첫 버튼 클릭 시 지연 없음)
