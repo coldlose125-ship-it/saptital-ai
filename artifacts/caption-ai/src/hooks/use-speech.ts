@@ -9,6 +9,8 @@ declare global {
 
 export type SpeechStatus = '대기 중' | '녹음 중' | '처리 중' | '오류 발생' | '지원하지 않음';
 
+const SILENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export function useSpeechRecognition(
   onResult: (text: string, isFinal: boolean) => void,
   onDebugLog?: (msg: string) => void,
@@ -26,9 +28,10 @@ export function useSpeechRecognition(
   const onResultRef = useRef(onResult);
   const onDebugRef = useRef(onDebugLog);
   const deviceIdRef = useRef(deviceId);
+  const lastSpeechTimeRef = useRef<number>(Date.now());
+  const silenceWatchdogRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
-
   useEffect(() => { onResultRef.current = onResult; }, [onResult]);
   useEffect(() => { onDebugRef.current = onDebugLog; }, [onDebugLog]);
 
@@ -36,6 +39,38 @@ export function useSpeechRecognition(
     console.log('[SpeechRecognition]', msg);
     onDebugRef.current?.(msg);
   };
+
+  // Start / clear the 5-minute silence watchdog
+  const startSilenceWatchdog = useCallback(() => {
+    if (silenceWatchdogRef.current) clearInterval(silenceWatchdogRef.current);
+    lastSpeechTimeRef.current = Date.now();
+    silenceWatchdogRef.current = setInterval(() => {
+      const silentMs = Date.now() - lastSpeechTimeRef.current;
+      if (silentMs >= SILENCE_TIMEOUT_MS && isListeningRef.current) {
+        log(`silence watchdog: ${Math.round(silentMs / 1000)}s 무음 — 자동 중지`);
+        isManuallyStoppedRef.current = true;
+        try { recognitionRef.current?.stop(); } catch (_) {}
+        if (activeStreamRef.current) {
+          activeStreamRef.current.getTracks().forEach(t => t.stop());
+          activeStreamRef.current = null;
+        }
+        isListeningRef.current = false;
+        setIsListening(false);
+        setStatus('대기 중');
+        if (silenceWatchdogRef.current) {
+          clearInterval(silenceWatchdogRef.current);
+          silenceWatchdogRef.current = null;
+        }
+      }
+    }, 30_000); // check every 30 seconds
+  }, []);
+
+  const stopSilenceWatchdog = useCallback(() => {
+    if (silenceWatchdogRef.current) {
+      clearInterval(silenceWatchdogRef.current);
+      silenceWatchdogRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -65,12 +100,18 @@ export function useSpeechRecognition(
     };
 
     recognition.onsoundstart = () => log('onsoundstart: 소리 감지됨');
-    recognition.onspeechstart = () => log('onspeechstart: 음성 감지됨');
+
+    recognition.onspeechstart = () => {
+      log('onspeechstart: 음성 감지됨');
+      lastSpeechTimeRef.current = Date.now();
+    };
+
     recognition.onspeechend = () => log('onspeechend: 음성 종료됨');
     recognition.onsoundend = () => log('onsoundend: 소리 종료됨');
 
     recognition.onresult = (event: any) => {
       log(`onresult: resultIndex=${event.resultIndex}, results.length=${event.results.length}`);
+      lastSpeechTimeRef.current = Date.now(); // any speech resets the silence timer
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -129,7 +170,23 @@ export function useSpeechRecognition(
 
     recognition.onend = () => {
       log(`onend: manuallyStopped=${isManuallyStoppedRef.current}`);
+
       if (!isManuallyStoppedRef.current) {
+        // Check if 5 minutes of silence has elapsed across all restart cycles
+        const silentMs = Date.now() - lastSpeechTimeRef.current;
+        if (silentMs >= SILENCE_TIMEOUT_MS) {
+          log(`onend: ${Math.round(silentMs / 1000)}s 무음 초과 — 자동 중지`);
+          isListeningRef.current = false;
+          setIsListening(false);
+          setStatus('대기 중');
+          stopSilenceWatchdog();
+          if (activeStreamRef.current) {
+            activeStreamRef.current.getTracks().forEach(t => t.stop());
+            activeStreamRef.current = null;
+          }
+          return;
+        }
+
         log('onend: 자동 재시작 시도...');
         setTimeout(() => {
           try {
@@ -146,6 +203,7 @@ export function useSpeechRecognition(
         isListeningRef.current = false;
         setIsListening(false);
         setStatus('대기 중');
+        stopSilenceWatchdog();
         log('onend: 사용자가 중지함');
       }
     };
@@ -156,9 +214,10 @@ export function useSpeechRecognition(
     return () => {
       log('cleanup: 인식기 정리');
       isManuallyStoppedRef.current = true;
+      stopSilenceWatchdog();
       try { recognition.stop(); } catch (_) {}
     };
-  }, []);
+  }, [stopSilenceWatchdog]);
 
   const startListening = useCallback(async () => {
     setErrorMsg(null);
@@ -171,8 +230,6 @@ export function useSpeechRecognition(
       return;
     }
 
-    // Activate the selected device via getUserMedia so the browser routes
-    // audio from that device to SpeechRecognition
     try {
       const dId = deviceIdRef.current;
       const audioConstraint: MediaTrackConstraints = dId && dId !== 'default'
@@ -180,12 +237,10 @@ export function useSpeechRecognition(
         : true as any;
       log(`getUserMedia 시도: deviceId=${dId ?? 'default'}`);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
-      // Keep stream alive while recognition is running
       activeStreamRef.current = stream;
       log('getUserMedia 성공 — 음성 인식 시작');
     } catch (e: any) {
       log(`getUserMedia 실패: ${e?.message} — 기본 장치로 시도`);
-      // Try without device constraint as fallback
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         activeStreamRef.current = stream;
@@ -198,20 +253,22 @@ export function useSpeechRecognition(
 
     try {
       isManuallyStoppedRef.current = false;
+      lastSpeechTimeRef.current = Date.now(); // reset silence timer on manual start
+      startSilenceWatchdog();
       recognitionRef.current.start();
       log('startListening: start() 호출됨');
     } catch (e: any) {
       log(`startListening: 실패 — ${e?.message}`);
     }
-  }, []);
+  }, [startSilenceWatchdog]);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
     isManuallyStoppedRef.current = true;
+    stopSilenceWatchdog();
     try {
       recognitionRef.current.stop();
     } catch (_) {}
-    // Release the media stream
     if (activeStreamRef.current) {
       activeStreamRef.current.getTracks().forEach(t => t.stop());
       activeStreamRef.current = null;
@@ -220,7 +277,7 @@ export function useSpeechRecognition(
     setIsListening(false);
     setStatus('대기 중');
     log('stopListening: 중지됨');
-  }, []);
+  }, [stopSilenceWatchdog]);
 
   return { isListening, status, errorMsg, supported, startListening, stopListening };
 }

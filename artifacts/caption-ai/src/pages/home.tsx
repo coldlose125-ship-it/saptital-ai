@@ -31,10 +31,22 @@ export default function Home() {
   // Run Gemini analysis on a single transcript and update it in state
   const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[]) => {
     const result = await analyzeText(text, contextTexts);
-    if (!result) return;
+    if (!result) {
+      // Clear loading state even on failure
+      setTranscripts(prev => prev.map(t => t.id === id ? { ...t, aiLoading: false } : t));
+      return;
+    }
     setTranscripts(prev => prev.map(t =>
       t.id === id
-        ? { ...t, aiTopic: result.topic, aiTier: result.tier, aiLoading: false }
+        ? {
+            ...t,
+            aiTopic: result.isSmallTalk ? '잡담' : result.topic,
+            aiTier: result.tier,
+            aiLoading: false,
+            displayText: result.simpleSummary !== text ? result.simpleSummary : undefined,
+            isSmallTalk: result.isSmallTalk,
+            topicChanged: result.topicChanged,
+          }
         : t
     ));
   }, []);
@@ -125,18 +137,19 @@ export default function Home() {
         "마감은 내일 10시 정각입니다."
       ],
       2: [
+        "오늘 날씨가 너무 좋네요. 점심 뭐 드셨어요?",
+        "저는 김치찌개 먹었어요. 맛있었어요.",
         "오늘 오후 3시에 긴급 팀 회의가 있습니다.",
         "회의 장소는 3층 대회의실로 변경되었습니다.",
-        "중요한 프로젝트 마감 일정을 논의할 예정입니다.",
         "모든 팀원은 반드시 참석해주세요.",
-        "지진 대피 훈련도 안내할 예정입니다."
       ],
       3: [
         "기말고사 일정을 안내합니다.",
         "시험은 12월 20일 오전 9시에 시작합니다.",
         "시험 장소는 대강당입니다.",
         "신분증을 반드시 지참하세요.",
-        "주의사항을 꼭 확인하세요."
+        "다음으로 내일 식사 메뉴 이야기를 해 봅시다.",
+        "오늘 저녁은 삼겹살 어떤가요?"
       ],
     };
 
@@ -312,10 +325,10 @@ export default function Home() {
               수업 공지
             </button>
             <button onClick={() => runDemoScenario(2)} className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-semibold transition-colors">
-              회의 안내
+              잡담 → 긴급 회의
             </button>
-            <button onClick={() => runDemoScenario(3)} className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-sm font-semibore transition-colors">
-              시험 일정
+            <button onClick={() => runDemoScenario(3)} className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-sm font-semibold transition-colors">
+              시험 → 잡담
             </button>
           </div>
         </div>

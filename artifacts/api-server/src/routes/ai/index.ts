@@ -39,17 +39,21 @@ router.post("/ai/analyze", async (req, res) => {
       ? `\n\n이전 대화 맥락:\n${context.slice(-4).map((c, i) => `${i + 1}. ${c}`).join("\n")}`
       : "";
 
+    const hasContext = context && context.length > 0;
+
     const prompt = `당신은 청각장애인과 언어장애인을 위한 자막 분석 AI입니다.
 아래 한국어 발화 텍스트를 분석하여 JSON으로만 응답하세요.
 
 발화 텍스트: "${text}"${contextBlock}
 
-다음 JSON 형식으로 정확히 응답하세요 (다른 텍스트 없이 JSON만):
-{"topic":"주제라벨","tier":"일반","simpleSummary":"쉬운 요약"}
+다음 JSON 형식으로 정확히 응답하세요:
+{"topic":"주제라벨","tier":"일반","simpleSummary":"쉬운 요약","isSmallTalk":false,"topicChanged":false}
 
-topic: 2~5글자 짧은 주제 (예: 음식 결정, 수업 공지, 일정 변경, 긴급 상황)
-tier: 일반 / 중요 / 핵심 / 긴급 중 하나
-simpleSummary: 초등학생도 이해할 수 있는 1~2문장`;
+topic: 2~5글자 짧은 주제 (잡담이면 "잡담", 아니면 예: 음식 결정, 수업 공지, 일정 변경, 긴급 상황)
+tier: 일반 / 중요 / 핵심 / 긴급 중 하나 (잡담이면 반드시 "일반")
+simpleSummary: 음성인식 오류를 수정하고 초등학생도 이해할 수 있는 1~2문장으로 재작성 (원문과 크게 다르지 않게)
+isSmallTalk: 인사, 잡담, 날씨, 일상대화처럼 특별히 중요하지 않은 내용이면 true, 공지/업무/긴급 등이면 false
+topicChanged: 이전 대화 맥락과 주제가 명확히 바뀌었으면 true, 없거나 같으면 false${!hasContext ? " (이전 맥락 없음이므로 반드시 false)" : ""}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -59,12 +63,14 @@ simpleSummary: 초등학생도 이해할 수 있는 1~2문장`;
 
     const raw = (response.text ?? "").trim();
 
-    const parsed = safeParseJson(raw, { topic: "일반", tier: "일반", simpleSummary: text });
+    const parsed = safeParseJson(raw, { topic: "일반", tier: "일반", simpleSummary: text, isSmallTalk: false, topicChanged: false });
 
     res.json({
       topic: (parsed as any).topic ?? "일반",
       tier: (parsed as any).tier ?? "일반",
       simpleSummary: (parsed as any).simpleSummary ?? text,
+      isSmallTalk: Boolean((parsed as any).isSmallTalk),
+      topicChanged: Boolean((parsed as any).topicChanged),
     });
   } catch (err: any) {
     console.error("AI analyze error:", err);
