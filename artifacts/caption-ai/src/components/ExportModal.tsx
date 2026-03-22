@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Copy, Printer, FileText, Check, FlaskConical, Hash, CheckCircle2
+  X, Copy, Printer, FileText, Check, FlaskConical, Hash, CheckCircle2, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -22,7 +22,8 @@ interface ExportModalProps {
 function buildPrintHtml(
   transcripts: ProcessedTranscript[],
   globalTerms: { term: string; explanation: string }[],
-  sessionStart: Date
+  sessionStart: Date,
+  mode: 'save' | 'print' = 'print'
 ): string {
   const dateStr = format(sessionStart, 'yyyy년 MM월 dd일 (EEEE)', { locale: ko });
   const startTime = format(sessionStart, 'HH:mm');
@@ -106,9 +107,24 @@ function buildPrintHtml(
       gap: 8px;
       font-family: inherit;
     }
+    .btn-save  { background: #059669; color: #fff; }
     .btn-print { background: #1d6fe8; color: #fff; }
-    .btn-close  { background: #f1f5f9; color: #475569; }
-    .btn:hover  { opacity: .88; }
+    .btn-close { background: #f1f5f9; color: #475569; }
+    .btn:hover { opacity: .88; }
+    .save-guide {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: #ecfdf5;
+      border: 1px solid #6ee7b7;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #065f46;
+      line-height: 1.6;
+      max-width: 600px;
+    }
+    .save-guide strong { font-weight: 800; display: block; margin-bottom: 2px; }
 
     /* ── 리포트 내부 ── */
     .report-header {
@@ -281,11 +297,30 @@ function buildPrintHtml(
 </head>
 <body>
   <div class="page-wrap">
-    <!-- 화면에서만 보이는 액션 버튼 -->
-    <div class="print-actions no-print">
-      <button class="btn btn-print" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
-      <button class="btn btn-close" onclick="window.close()">닫기</button>
+    <!-- 화면에서만 보이는 액션 영역 -->
+    <div class="no-print" style="display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:24px;">
+      ${mode === 'save' ? `
+        <div class="save-guide">
+          <span style="font-size:22px;line-height:1">💾</span>
+          <div>
+            <strong>PDF로 저장하는 방법</strong>
+            아래 버튼을 클릭한 후 열리는 대화상자에서<br/>
+            <b>'대상(목적지)'</b>을 <b>'PDF로 저장'</b>으로 선택하면 PDF 파일로 저장됩니다.
+          </div>
+        </div>
+        <div class="print-actions">
+          <button class="btn btn-save" onclick="window.print()">💾 PDF로 저장</button>
+          <button class="btn btn-close" onclick="window.close()">닫기</button>
+        </div>
+      ` : `
+        <div class="print-actions">
+          <button class="btn btn-print" onclick="window.print()">🖨️ 다시 인쇄</button>
+          <button class="btn btn-close" onclick="window.close()">닫기</button>
+        </div>
+      `}
     </div>
+
+    ${mode === 'print' ? `<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>` : ''}
 
     <!-- A4 리포트 영역 (인쇄 시 이것만 출력됨) -->
     <div class="a4-page">
@@ -448,9 +483,9 @@ export function ExportModal({
     setTimeout(() => setToast(false), 3000);
   };
 
-  /* 인쇄 / PDF */
-  const handlePrint = () => {
-    const html = buildPrintHtml(transcripts, globalTerms, sessionStart);
+  /* 인쇄 창 열기 공통 함수 */
+  const openWindow = (mode: 'save' | 'print') => {
+    const html = buildPrintHtml(transcripts, globalTerms, sessionStart, mode);
     const win = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
     if (!win) {
       alert('팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.');
@@ -460,6 +495,9 @@ export function ExportModal({
     win.document.write(html);
     win.document.close();
   };
+
+  const handleSave  = () => openWindow('save');
+  const handlePrint = () => openWindow('print');
 
   return (
     <>
@@ -607,25 +645,34 @@ export function ExportModal({
               </div>
 
               {/* 액션 버튼 */}
-              <div className="flex gap-3 px-6 py-4 border-t border-border bg-background shrink-0">
-                {/* 복사 버튼 */}
+              <div className="flex flex-col gap-2 px-6 py-4 border-t border-border bg-background shrink-0">
+                {/* 복사 */}
                 <button
                   onClick={handleCopy}
-                  className="flex-1 flex items-center justify-center gap-2.5 bg-secondary hover:bg-muted text-foreground font-bold text-sm py-3.5 rounded-xl transition-colors border border-border"
+                  className="w-full flex items-center justify-center gap-2 bg-secondary hover:bg-muted text-foreground font-bold text-sm py-3 rounded-xl transition-colors border border-border"
                 >
                   <Copy className="w-4 h-4" />
                   텍스트 복사
                   <span className="text-[10px] font-normal text-muted-foreground">(메시지 공유)</span>
                 </button>
 
-                {/* 인쇄 버튼 */}
-                <button
-                  onClick={handlePrint}
-                  className="flex-1 flex items-center justify-center gap-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-sm py-3.5 rounded-xl transition-colors shadow-md"
-                >
-                  <Printer className="w-4 h-4" />
-                  인쇄 / PDF 저장
-                </button>
+                {/* 저장 / 인쇄 나란히 */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3.5 rounded-xl transition-colors shadow-md"
+                  >
+                    <Download className="w-4 h-4" />
+                    PDF 저장
+                  </button>
+                  <button
+                    onClick={handlePrint}
+                    className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-sm py-3.5 rounded-xl transition-colors shadow-md"
+                  >
+                    <Printer className="w-4 h-4" />
+                    인쇄
+                  </button>
+                </div>
               </div>
             </motion.div>
           </>
