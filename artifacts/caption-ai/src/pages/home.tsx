@@ -293,6 +293,7 @@ export default function Home() {
                     data={t}
                     isSelected={selectedId === t.id}
                     onClick={() => setSelectedId(prev => prev === t.id ? null : t.id)}
+                    fontSizeLevel={fontSizeLevel}
                   />
                 ))
               )}

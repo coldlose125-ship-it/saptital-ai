@@ -15,7 +15,11 @@ interface TranscriptItemProps {
   isInterim?: boolean;
   isSelected?: boolean;
   onClick?: () => void;
+  fontSizeLevel?: 0 | 1 | 2;
 }
+
+const MAIN_TEXT_SIZE = ['text-lg', 'text-xl', 'text-2xl'] as const;
+const INTERIM_TEXT_SIZE = ['text-xl', 'text-2xl', 'text-3xl'] as const;
 
 const TIER_BADGE: Record<string, string> = {
   긴급: 'bg-red-500 text-white',
@@ -24,7 +28,7 @@ const TIER_BADGE: Record<string, string> = {
   일반: '',
 };
 
-export function TranscriptItem({ data, isInterim = false, isSelected = false, onClick }: TranscriptItemProps) {
+export function TranscriptItem({ data, isInterim = false, isSelected = false, onClick, fontSizeLevel = 0 }: TranscriptItemProps) {
   const showTopicDivider = data.topicChanged === true && !isInterim;
   const activeTier = data.aiTier ?? data.tier;
   const mainText = data.displayText ?? data.originalText;
@@ -111,8 +115,10 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
 
         {/* Main text */}
         <p className={cn(
-          "leading-relaxed tracking-tight",
-          isInterim ? "text-xl text-muted-foreground" : "text-lg text-foreground font-medium"
+          "leading-relaxed tracking-tight transition-all duration-300",
+          isInterim
+            ? `${INTERIM_TEXT_SIZE[fontSizeLevel]} text-muted-foreground`
+            : `${MAIN_TEXT_SIZE[fontSizeLevel]} text-foreground font-medium`
         )}>
           {mainText}
         </p>
