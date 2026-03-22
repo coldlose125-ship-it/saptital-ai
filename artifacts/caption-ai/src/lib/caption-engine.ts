@@ -23,10 +23,14 @@ export interface ProcessedTranscript {
   aiTopic?: string;
   aiTier?: '일반' | '중요' | '핵심' | '긴급';
   aiLoading?: boolean;
-  displayText?: string;    // AI-refined text replacing raw speech recognition errors
-  aiKeywords?: string[];   // AI-extracted keywords from the refined text
-  isSmallTalk?: boolean;   // true when AI classifies as casual/unimportant conversation
-  topicChanged?: boolean;  // true when AI detects a topic shift from previous context
+  displayText?: string;
+  aiKeywords?: string[];
+  isSmallTalk?: boolean;
+  topicChanged?: boolean;
+  // Medical-specific fields
+  medical_terms?: { term: string; explanation: string }[];
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  suggested_replies?: string[];
 }
 
 export function processTranscript(text: string): ProcessedTranscript {

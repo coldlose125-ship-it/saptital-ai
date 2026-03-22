@@ -50,59 +50,163 @@
 }
 
 :root {
-  /* Clean, professional light theme */
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
-  
+  /* Medical blue theme */
+  --background: 210 33% 97%;
+  --foreground: 218 47% 12%;
+
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
-  
+  --card-foreground: 218 47% 12%;
+  --card-border: 214 32% 89%;
+
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
-  
-  --primary: 221 83% 53%; /* A nice professional blue */
+  --popover-foreground: 218 47% 12%;
+  --popover-border: 214 32% 89%;
+
+  --primary: 213 94% 45%;
   --primary-foreground: 210 40% 98%;
-  
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
-  
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
-  
+
+  --secondary: 213 60% 93%;
+  --secondary-foreground: 213 60% 25%;
+
+  --muted: 213 40% 95%;
+  --muted-foreground: 213 16% 50%;
+
+  --accent: 213 60% 93%;
+  --accent-foreground: 213 60% 25%;
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
+  --border: 213 32% 88%;
+  --input: 213 32% 88%;
+  --ring: 213 94% 45%;
 
   --radius: 0.75rem;
 
-  /* Custom Status Colors for the App */
-  --status-yellow: 45 93% 47%;
-  --status-yellow-bg: 45 93% 96%;
-  --status-orange: 24 95% 53%;
-  --status-orange-bg: 24 95% 96%;
-  --status-red: 0 84% 60%;
-  --status-red-bg: 0 84% 96%;
-  
-  --elevate-1: rgba(0,0,0, 0.03);
-  --elevate-2: rgba(0,0,0, 0.08);
+  /* Sentiment colors */
+  --sentiment-positive: 142 71% 45%;
+  --sentiment-positive-bg: 142 71% 96%;
+  --sentiment-neutral: 213 94% 45%;
+  --sentiment-neutral-bg: 213 60% 96%;
+  --sentiment-negative: 25 95% 53%;
+  --sentiment-negative-bg: 25 95% 96%;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+}
+
+/* ── Splash Screen ──────────────────────────────── */
+@keyframes splash-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-12px); }
+}
+@keyframes splash-scale-in {
+  from { opacity: 0; transform: scale(0.88); letter-spacing: 0.3em; }
+  to   { opacity: 1; transform: scale(1);    letter-spacing: 0.12em; }
+}
+@keyframes splash-overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; pointer-events: none; }
+}
+
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: linear-gradient(145deg, hsl(213 94% 14%), hsl(213 80% 28%));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+.splash-overlay.hiding {
+  animation: splash-overlay-out 0.7s ease-in-out forwards;
+}
+.splash-subtitle-text {
+  color: rgba(255,255,255,0.9);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-align: center;
+  animation: splash-fade-in 0.8s ease-out forwards;
+}
+.splash-subtitle-text.out {
+  animation: splash-fade-out 0.6s ease-in-out forwards;
+}
+.splash-logo {
+  color: #fff;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  opacity: 0;
+}
+.splash-logo.in {
+  animation: splash-scale-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.splash-logo-sub {
+  color: rgba(255,255,255,0.65);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.splash-logo-sub.in {
+  opacity: 1;
+}
+
+/* ── Sentiment borders ──────────────────────────── */
+.sentiment-positive {
+  border-left: 4px solid hsl(var(--sentiment-positive));
+  background: hsl(var(--sentiment-positive-bg));
+}
+.sentiment-neutral {
+  border-left: 4px solid hsl(var(--sentiment-neutral));
+  background: hsl(var(--sentiment-neutral-bg) / 0.5);
+}
+.sentiment-negative {
+  border-left: 4px solid hsl(var(--sentiment-negative));
+  background: hsl(var(--sentiment-negative-bg));
+}
+
+/* ── Alert bar slide ─────────────────────────────── */
+@keyframes slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+.alert-slide-in {
+  animation: slide-down 0.3s ease-out forwards;
+}
+
+/* ── Pulse animations ───────────────────────────── */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes mic-ring {
+  0%   { box-shadow: 0 0 0 0 hsl(213 94% 45% / 0.5); }
+  70%  { box-shadow: 0 0 0 10px hsl(213 94% 45% / 0); }
+  100% { box-shadow: 0 0 0 0   hsl(213 94% 45% / 0); }
+}
+.animate-mic-ring {
+  animation: mic-ring 1.5s ease-out infinite;
 }
 
 @layer utilities {
@@ -111,23 +215,6 @@
   }
   .hover-elevate:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   }
-  .active-elevate-2:active {
-    transform: translateY(0);
-    box-shadow: none;
-  }
-}
-
-/* Pulse animation for urgent items */
-@keyframes pulse-soft {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-.animate-pulse-soft {
-  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

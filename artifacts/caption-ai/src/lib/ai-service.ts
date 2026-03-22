@@ -1,11 +1,18 @@
 const BASE = '/api';
 
+export interface MedicalTerm {
+  term: string;
+  explanation: string;
+}
+
 export interface AnalyzeResult {
+  simpleSummary: string;
+  medical_terms: MedicalTerm[];
+  sentiment: 'positive' | 'neutral' | 'negative';
+  suggested_replies: string[];
   topic: string;
   tier: '일반' | '중요' | '핵심' | '긴급';
-  simpleSummary: string;
   keywords: string[];
-  isSmallTalk: boolean;
   topicChanged: boolean;
 }
 
@@ -40,4 +47,14 @@ export async function summarizeTexts(transcripts: string[]): Promise<SummarizeRe
   } catch {
     return null;
   }
+}
+
+export function speakText(text: string) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'ko-KR';
+  utterance.rate = 0.9;
+  utterance.pitch = 1.0;
+  window.speechSynthesis.speak(utterance);
 }
