@@ -3,7 +3,30 @@ import { ai } from "@workspace/integrations-gemini-ai";
 
 const router = Router();
 
-router.post("/api/ai/analyze", async (req, res) => {
+function extractJson(raw: string): string {
+  // Find the first '{' and last '}' to extract the JSON object
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    return raw.substring(start, end + 1);
+  }
+  return raw.trim();
+}
+
+function safeParseJson<T>(raw: string, fallback: T): T {
+  if (!raw || raw.trim() === "") return fallback;
+  const cleaned = extractJson(raw);
+  try {
+    const result = JSON.parse(cleaned);
+    console.log("[AI] parse OK, keys:", Object.keys(result));
+    return result;
+  } catch (e) {
+    console.error("[AI] parse failed. cleaned:", cleaned.slice(0, 200));
+    return fallback;
+  }
+}
+
+router.post("/ai/analyze", async (req, res) => {
   try {
     const { text, context } = req.body as { text: string; context?: string[] };
 
@@ -22,37 +45,26 @@ router.post("/api/ai/analyze", async (req, res) => {
 발화 텍스트: "${text}"${contextBlock}
 
 다음 JSON 형식으로 정확히 응답하세요 (다른 텍스트 없이 JSON만):
-{
-  "topic": "짧은 주제 라벨 (2~5글자, 예: 음식 결정, 수업 공지, 일정 변경, 긴급 상황)",
-  "tier": "일반 또는 중요 또는 핵심 또는 긴급 중 하나",
-  "simpleSummary": "장애가 있는 분들이 쉽게 이해할 수 있도록 아주 짧고 간단한 1~2문장. 핵심만 담아 쉬운 단어로 작성."
-}
+{"topic":"주제라벨","tier":"일반","simpleSummary":"쉬운 요약"}
 
-tier 선택 기준:
-- 긴급: 위험, 화재, 대피, 응급 등
-- 핵심: 반드시 알아야 할 중요 정보
-- 중요: 일정, 변경사항, 주의사항
-- 일반: 일상적인 대화`;
+topic: 2~5글자 짧은 주제 (예: 음식 결정, 수업 공지, 일정 변경, 긴급 상황)
+tier: 일반 / 중요 / 핵심 / 긴급 중 하나
+simpleSummary: 초등학생도 이해할 수 있는 1~2문장`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: 512, responseMimeType: "application/json" },
+      config: { maxOutputTokens: 8192, responseMimeType: "application/json" },
     });
 
-    const raw = response.text ?? "{}";
-    let parsed: { topic: string; tier: string; simpleSummary: string };
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
-      parsed = match ? JSON.parse(match[0]) : { topic: "일반", tier: "일반", simpleSummary: text };
-    }
+    const raw = (response.text ?? "").trim();
+
+    const parsed = safeParseJson(raw, { topic: "일반", tier: "일반", simpleSummary: text });
 
     res.json({
-      topic: parsed.topic ?? "일반",
-      tier: parsed.tier ?? "일반",
-      simpleSummary: parsed.simpleSummary ?? text,
+      topic: (parsed as any).topic ?? "일반",
+      tier: (parsed as any).tier ?? "일반",
+      simpleSummary: (parsed as any).simpleSummary ?? text,
     });
   } catch (err: any) {
     console.error("AI analyze error:", err);
@@ -60,7 +72,7 @@ tier 선택 기준:
   }
 });
 
-router.post("/api/ai/summarize", async (req, res) => {
+router.post("/ai/summarize", async (req, res) => {
   try {
     const { transcripts } = req.body as { transcripts: string[] };
 
@@ -76,36 +88,25 @@ router.post("/api/ai/summarize", async (req, res) => {
 
 ${recent.map((t, i) => `${i + 1}. ${t}`).join("\n")}
 
-다음 JSON 형식으로 정확히 응답하세요 (다른 텍스트 없이 JSON만):
-{
-  "summary": "전체 내용을 초등학생도 이해할 수 있는 아주 쉬운 한두 문장으로 요약. 어려운 단어 금지.",
-  "keywords": ["핵심단어1", "핵심단어2", "핵심단어3"]
-}
+다음 JSON 형식으로만 응답하세요:
+{"summary":"쉬운 요약 문장","keywords":["단어1","단어2"]}
 
-요약 원칙:
-- 짧고 명확하게
-- 쉬운 단어만 사용
-- 가장 중요한 정보 중심
-- keywords는 최대 5개, 각 1~4글자`;
+summary: 초등학생도 이해하는 1~2문장, 쉬운 단어만
+keywords: 최대 5개, 각 1~4글자`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: 512, responseMimeType: "application/json" },
+      config: { maxOutputTokens: 8192, responseMimeType: "application/json" },
     });
 
-    const raw = response.text ?? "{}";
-    let parsed: { summary: string; keywords: string[] };
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
-      parsed = match ? JSON.parse(match[0]) : { summary: "요약을 생성할 수 없습니다.", keywords: [] };
-    }
+    const raw = (response.text ?? "").trim();
+
+    const parsed = safeParseJson(raw, { summary: "요약을 생성할 수 없습니다.", keywords: [] as string[] });
 
     res.json({
-      summary: parsed.summary ?? "요약 없음",
-      keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 5) : [],
+      summary: (parsed as any).summary ?? "요약 없음",
+      keywords: Array.isArray((parsed as any).keywords) ? (parsed as any).keywords.slice(0, 5) : [],
     });
   } catch (err: any) {
     console.error("AI summarize error:", err);
