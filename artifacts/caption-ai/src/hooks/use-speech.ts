@@ -67,27 +67,37 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
     };
 
     recognition.onerror = (event: any) => {
+      // 'no-speech' and 'audio-capture' are non-fatal — they just mean silence or a brief glitch.
+      // Let onend handle the restart automatically.
+      if (event.error === 'no-speech' || event.error === 'audio-capture') {
+        return;
+      }
+
       console.error('Speech recognition error', event.error);
       setIsListening(false);
       setStatus('오류 발생');
-      
+      isManuallyStoppedRef.current = true; // prevent auto-restart on fatal errors
+
       if (event.error === 'not-allowed') {
         setErrorMsg('마이크 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.');
+      } else if (event.error === 'network') {
+        setErrorMsg('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
       } else {
         setErrorMsg(`음성인식 오류: ${event.error}`);
       }
     };
 
     recognition.onend = () => {
-      setIsListening(false);
-      // Automatically restart if it wasn't manually stopped (handles silence timeouts)
+      // Automatically restart unless the user manually stopped or a fatal error occurred
       if (!isManuallyStoppedRef.current) {
         try {
           recognition.start();
         } catch (e) {
+          setIsListening(false);
           setStatus('대기 중');
         }
       } else {
+        setIsListening(false);
         setStatus('대기 중');
       }
     };
