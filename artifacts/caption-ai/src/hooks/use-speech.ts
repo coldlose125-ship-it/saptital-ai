@@ -11,7 +11,8 @@ export type SpeechStatus = '대기 중' | '녹음 중' | '처리 중' | '오류 
 
 export function useSpeechRecognition(
   onResult: (text: string, isFinal: boolean) => void,
-  onDebugLog?: (msg: string) => void
+  onDebugLog?: (msg: string) => void,
+  deviceId?: string
 ) {
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState<SpeechStatus>('대기 중');
@@ -21,8 +22,12 @@ export function useSpeechRecognition(
   const recognitionRef = useRef<any>(null);
   const isManuallyStoppedRef = useRef(false);
   const isListeningRef = useRef(false);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const onResultRef = useRef(onResult);
   const onDebugRef = useRef(onDebugLog);
+  const deviceIdRef = useRef(deviceId);
+
+  useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
 
   useEffect(() => { onResultRef.current = onResult; }, [onResult]);
   useEffect(() => { onDebugRef.current = onDebugLog; }, [onDebugLog]);
@@ -155,7 +160,7 @@ export function useSpeechRecognition(
     };
   }, []);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     setErrorMsg(null);
     if (!recognitionRef.current) {
       log('startListening: recognitionRef 없음');
@@ -165,6 +170,32 @@ export function useSpeechRecognition(
       log('startListening: 이미 녹음 중');
       return;
     }
+
+    // Activate the selected device via getUserMedia so the browser routes
+    // audio from that device to SpeechRecognition
+    try {
+      const dId = deviceIdRef.current;
+      const audioConstraint: MediaTrackConstraints = dId && dId !== 'default'
+        ? { deviceId: { exact: dId } }
+        : true as any;
+      log(`getUserMedia 시도: deviceId=${dId ?? 'default'}`);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
+      // Keep stream alive while recognition is running
+      activeStreamRef.current = stream;
+      log('getUserMedia 성공 — 음성 인식 시작');
+    } catch (e: any) {
+      log(`getUserMedia 실패: ${e?.message} — 기본 장치로 시도`);
+      // Try without device constraint as fallback
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        activeStreamRef.current = stream;
+      } catch (e2: any) {
+        setErrorMsg('마이크 권한이 없습니다. 브라우저 주소창에서 마이크 권한을 허용해주세요.');
+        log(`getUserMedia 완전 실패: ${e2?.message}`);
+        return;
+      }
+    }
+
     try {
       isManuallyStoppedRef.current = false;
       recognitionRef.current.start();
@@ -180,6 +211,11 @@ export function useSpeechRecognition(
     try {
       recognitionRef.current.stop();
     } catch (_) {}
+    // Release the media stream
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(t => t.stop());
+      activeStreamRef.current = null;
+    }
     isListeningRef.current = false;
     setIsListening(false);
     setStatus('대기 중');

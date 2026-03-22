@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSpeechRecognition } from '@/hooks/use-speech';
+import { useAudioDevices } from '@/hooks/use-audio-devices';
 import { processTranscript, generateSummary, ProcessedTranscript } from '@/lib/caption-engine';
 import { TranscriptItem } from '@/components/TranscriptItem';
 import { SummaryPanel } from '@/components/SummaryPanel';
-import { Mic, Square, Trash2, PlayCircle, AlertCircle, Bug } from 'lucide-react';
+import { Mic, Square, Trash2, PlayCircle, AlertCircle, Bug, ChevronDown } from 'lucide-react';
 
 export default function Home() {
   const [transcripts, setTranscripts] = useState<ProcessedTranscript[]>([]);
@@ -21,6 +22,8 @@ export default function Home() {
     setDebugLogs(prev => [...prev.slice(-50), `${time} ${msg}`]);
   }, []);
 
+  const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
+
   const { isListening, status, errorMsg, supported, startListening, stopListening } = useSpeechRecognition(
     (text, isFinal) => {
       if (isFinal) {
@@ -31,7 +34,8 @@ export default function Home() {
         setInterimText(text);
       }
     },
-    addDebugLog
+    addDebugLog,
+    selectedDeviceId
   );
 
   // Update summary when transcripts grow
@@ -117,6 +121,26 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Device selector — always visible, populated after mic permission */}
+          <div className="relative flex items-center">
+            <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" />
+            <select
+              value={selectedDeviceId}
+              onChange={e => setSelectedDeviceId(e.target.value)}
+              disabled={isListening}
+              className="appearance-none pl-7 pr-6 py-2 text-xs font-medium bg-secondary border border-border rounded-lg text-foreground cursor-pointer hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed max-w-[180px]"
+              title="음성 입력 장치 선택"
+            >
+              {devices.length === 0
+                ? <option value="default">기본 마이크</option>
+                : devices.map(d => (
+                    <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
+                  ))
+              }
+            </select>
+            <ChevronDown className="absolute right-1.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          </div>
+
           {/* Status indicator */}
           <div className="flex items-center gap-2">
             <span className="relative flex h-3 w-3">
