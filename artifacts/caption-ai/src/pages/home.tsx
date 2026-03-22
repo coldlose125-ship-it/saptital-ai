@@ -9,9 +9,13 @@ import { SplashScreen } from '@/components/SplashScreen';
 import { AlertBar } from '@/components/AlertBar';
 import { MedicalTermsPanel } from '@/components/MedicalTermsPanel';
 import { QuickReplyBar } from '@/components/QuickReplyBar';
+import { ExportModal } from '@/components/ExportModal';
 import {
-  Mic, Square, Trash2, AlertCircle, ChevronDown, Stethoscope, Activity
+  Mic, Square, Trash2, AlertCircle, ChevronDown, Stethoscope, Activity, FileText
 } from 'lucide-react';
+
+const FONT_SIZES = ['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl'] as const;
+const FONT_LABELS = ['표준', '크게', '매우\n크게'] as const;
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
@@ -23,10 +27,13 @@ export default function Home() {
   const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [lastSpeaking, setLastSpeaking] = useState<string>('');
+  const [fontSizeLevel, setFontSizeLevel] = useState<0 | 1 | 2>(0);
+  const [showExport, setShowExport] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSummarizedCountRef = useRef(0);
+  const sessionStartRef = useRef<Date>(new Date());
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
@@ -122,6 +129,7 @@ export default function Home() {
     setSuggestedReplies([]);
     setLastSpeaking('');
     lastSummarizedCountRef.current = 0;
+    sessionStartRef.current = new Date();
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
   };
 
@@ -160,7 +168,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap justify-end">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Device selector */}
             <div className="relative flex items-center">
               <Mic className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10" />
@@ -168,7 +176,7 @@ export default function Home() {
                 value={selectedDeviceId}
                 onChange={e => setSelectedDeviceId(e.target.value)}
                 disabled={isListening}
-                className="appearance-none pl-7 pr-6 py-2 text-xs font-medium bg-secondary border border-border rounded-xl text-foreground cursor-pointer hover:bg-muted transition-colors disabled:opacity-50 max-w-[180px]"
+                className="appearance-none pl-7 pr-6 py-2 text-xs font-medium bg-secondary border border-border rounded-xl text-foreground cursor-pointer hover:bg-muted transition-colors disabled:opacity-50 max-w-[160px]"
               >
                 {devices.length === 0
                   ? <option value="default">기본 마이크</option>
@@ -184,8 +192,38 @@ export default function Home() {
                 {isListening && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isListening ? 'bg-red-500' : 'bg-gray-300'}`} />
               </span>
-              <span className="text-xs font-semibold text-muted-foreground">{status}</span>
+              <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">{status}</span>
             </div>
+
+            {/* ── 글자 크기 조절 ── */}
+            <div className="flex items-center gap-0.5 bg-secondary border border-border rounded-xl p-0.5" title="자막 글자 크기">
+              {([0, 1, 2] as const).map(level => (
+                <button
+                  key={level}
+                  onClick={() => setFontSizeLevel(level)}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-extrabold transition-all leading-none ${
+                    fontSizeLevel === level
+                      ? 'bg-primary text-white shadow'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                  style={{ fontSize: `${10 + level * 2}px` }}
+                >
+                  가
+                </button>
+              ))}
+            </div>
+
+            {/* ── 진료 기록 내보내기 ── */}
+            {transcripts.length > 0 && (
+              <button
+                onClick={() => setShowExport(true)}
+                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl font-bold text-xs transition-colors"
+                title="오늘의 진료 기록 저장"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">기록 저장</span>
+              </button>
+            )}
 
             {!supported ? (
               <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-semibold">
@@ -195,7 +233,7 @@ export default function Home() {
             ) : !isListening ? (
               <button
                 onClick={startListening}
-                className={`flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0`}
+                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Mic className="w-4 h-4" />
                 진료 시작
@@ -299,7 +337,7 @@ export default function Home() {
                 </span>
               )}
             </div>
-            <p className={`text-3xl md:text-4xl font-bold tracking-tight leading-snug min-h-[52px] transition-colors duration-300 ${
+            <p className={`${FONT_SIZES[fontSizeLevel]} font-bold tracking-tight leading-snug min-h-[52px] transition-colors duration-300 ${
               interimText ? 'text-primary' : 'text-foreground/60'
             }`}>
               {interimText || lastSpeaking || (isListening ? '말씀하세요...' : '의사 선생님의 말씀이 여기에 표시됩니다')}
@@ -310,6 +348,16 @@ export default function Home() {
         {/* 추천 답변 버튼 */}
         <QuickReplyBar replies={suggestedReplies} />
       </div>
+
+      {/* 진료 기록 내보내기 모달 */}
+      <ExportModal
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        transcripts={transcripts}
+        globalTerms={globalTerms}
+        globalKeywords={globalKeywords}
+        sessionStart={sessionStartRef.current}
+      />
     </>
   );
 }
