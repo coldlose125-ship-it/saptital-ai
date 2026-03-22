@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// Extend Window type for Web Speech API
 declare global {
   interface Window {
     SpeechRecognition: any;
@@ -14,13 +13,22 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState<SpeechStatus>('대기 중');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
+
   const recognitionRef = useRef<any>(null);
   const isManuallyStoppedRef = useRef(false);
+  const isListeningRef = useRef(false);
+
+  // Keep the callback in a ref so the recognition instance is only created ONCE.
+  // Without this, every state update triggers a re-render, which creates a new
+  // callback reference, which restarts the recognition — breaking speech capture.
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
       setStatus('지원하지 않음');
       setErrorMsg('이 브라우저는 음성인식을 지원하지 않습니다. Chrome을 권장합니다.');
@@ -31,8 +39,10 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'ko-KR';
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      isListeningRef.current = true;
       setIsListening(true);
       setStatus('녹음 중');
       setErrorMsg(null);
@@ -40,46 +50,43 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
     };
 
     recognition.onresult = (event: any) => {
-      setStatus('처리 중');
-      
       let interimTranscript = '';
       let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0]?.transcript;
+        if (!transcript) continue;
+
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+          finalTranscript += transcript;
         } else {
-          interimTranscript += event.results[i][0].transcript;
+          interimTranscript += transcript;
         }
       }
 
-      if (finalTranscript) {
-        onResult(finalTranscript.trim(), true);
-      } else if (interimTranscript) {
-        // We only pass interim to give UI feedback, but maybe handle it carefully
-        onResult(interimTranscript.trim(), false);
+      if (finalTranscript.trim()) {
+        setStatus('녹음 중');
+        onResultRef.current(finalTranscript.trim(), true);
+      } else if (interimTranscript.trim()) {
+        setStatus('처리 중');
+        onResultRef.current(interimTranscript.trim(), false);
       }
-      
-      // Reset back to listening after a small delay
-      setTimeout(() => {
-        if (recognitionRef.current && isListening) setStatus('녹음 중');
-      }, 500);
     };
 
     recognition.onerror = (event: any) => {
-      // 'no-speech' and 'audio-capture' are non-fatal — they just mean silence or a brief glitch.
-      // Let onend handle the restart automatically.
+      // no-speech = silence timeout, audio-capture = brief glitch → both are non-fatal
       if (event.error === 'no-speech' || event.error === 'audio-capture') {
         return;
       }
 
       console.error('Speech recognition error', event.error);
+      isListeningRef.current = false;
       setIsListening(false);
       setStatus('오류 발생');
-      isManuallyStoppedRef.current = true; // prevent auto-restart on fatal errors
+      isManuallyStoppedRef.current = true;
 
       if (event.error === 'not-allowed') {
-        setErrorMsg('마이크 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.');
+        setErrorMsg('마이크 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
       } else if (event.error === 'network') {
         setErrorMsg('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
       } else {
@@ -88,15 +95,17 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
     };
 
     recognition.onend = () => {
-      // Automatically restart unless the user manually stopped or a fatal error occurred
+      // Auto-restart unless manually stopped or a fatal error occurred
       if (!isManuallyStoppedRef.current) {
         try {
           recognition.start();
         } catch (e) {
+          isListeningRef.current = false;
           setIsListening(false);
           setStatus('대기 중');
         }
       } else {
+        isListeningRef.current = false;
         setIsListening(false);
         setStatus('대기 중');
       }
@@ -104,40 +113,38 @@ export function useSpeechRecognition(onResult: (text: string, isFinal: boolean) 
 
     recognitionRef.current = recognition;
 
+    // Cleanup: stop recognition when component unmounts
     return () => {
-      if (recognitionRef.current) {
-        isManuallyStoppedRef.current = true;
-        recognitionRef.current.stop();
-      }
+      isManuallyStoppedRef.current = true;
+      try {
+        recognition.stop();
+      } catch (e) {}
     };
-  }, [onResult]);
+  }, []); // Empty deps — create recognition only ONCE
 
   const startListening = useCallback(() => {
     setErrorMsg(null);
-    if (recognitionRef.current && !isListening) {
+    if (recognitionRef.current && !isListeningRef.current) {
       try {
         isManuallyStoppedRef.current = false;
         recognitionRef.current.start();
       } catch (e) {
-        console.error("Failed to start recognition", e);
+        console.error('Failed to start recognition', e);
       }
     }
-  }, [isListening]);
+  }, []);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
+    if (recognitionRef.current && isListeningRef.current) {
       isManuallyStoppedRef.current = true;
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      isListeningRef.current = false;
       setIsListening(false);
       setStatus('대기 중');
     }
-  }, [isListening]);
+  }, []);
 
-  return {
-    isListening,
-    status,
-    errorMsg,
-    startListening,
-    stopListening
-  };
+  return { isListening, status, errorMsg, startListening, stopListening };
 }

@@ -22,6 +22,19 @@ export interface ProcessedTranscript {
 }
 
 export function processTranscript(text: string): ProcessedTranscript {
+  // Guard against undefined/empty input
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return {
+      id: crypto.randomUUID(),
+      originalText: '',
+      score: 0,
+      tier: '일반',
+      keywordsFound: [],
+      segments: [{ text: '', isKeyword: false }],
+      timestamp: new Date(),
+    };
+  }
+
   let totalScore = 0;
   const keywordsFound: string[] = [];
   let highestTier = '일반';
