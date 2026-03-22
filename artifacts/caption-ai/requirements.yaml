@@ -1,0 +1,5 @@
+packages:
+  "framer-motion": "For smooth layout animations of the real-time transcript list"
+  "date-fns": "For formatting timestamps"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility for merging tailwind classes safely"

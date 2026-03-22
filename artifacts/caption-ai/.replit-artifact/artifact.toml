@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "CaptionAI - 청각장애인 실시간 자막 앱"
+version = "1.0.0"
+id = "artifacts/caption-ai"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26246
+
+[services.development]
+run = "pnpm --filter @workspace/caption-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/caption-ai", "run", "build" ]
+publicDir = "artifacts/caption-ai/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26246"
+BASE_PATH = "/"
