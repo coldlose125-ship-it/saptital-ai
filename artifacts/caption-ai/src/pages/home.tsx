@@ -188,6 +188,17 @@ export default function Home() {
     setIsDemoMode(false);
     setDemoStep(-1);
     setDemoWaitingForReply(false);
+    setTranscripts([]);
+    setInterimText('');
+    setSelectedId(null);
+    setGlobalTerms([]);
+    setGlobalKeywords([]);
+    setSuggestedReplies([]);
+    setLastSpeaking('');
+    lastSummarizedCountRef.current = 0;
+    sessionStartRef.current = new Date();
+    if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   const startDemo = useCallback(() => {
@@ -338,11 +349,15 @@ export default function Home() {
 
         {/* Header */}
         <header role="banner" className="bg-card border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-3 hover:opacity-75 transition-opacity"
+            aria-label="Sapital AI 홈으로 이동"
+          >
             <div className="bg-primary p-2 rounded-xl shadow-inner" aria-hidden="true">
               <Stethoscope className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="text-left">
               <h1 className="text-lg font-extrabold tracking-tight text-foreground leading-none">
                 Sapital <span className="text-primary">AI</span>
               </h1>
@@ -350,7 +365,7 @@ export default function Home() {
                 {t('app.subtitle')}
               </p>
             </div>
-          </div>
+          </button>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             {/* Demo button */}
