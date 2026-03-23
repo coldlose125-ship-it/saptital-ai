@@ -1,5 +1,5 @@
 FROM node:24-alpine AS base
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 WORKDIR /app
 
 FROM base AS deps
@@ -20,7 +20,7 @@ RUN BASE_PATH=/ pnpm --filter @workspace/caption-ai run build
 RUN pnpm --filter @workspace/api-server run build
 
 FROM node:24-alpine AS runner
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 WORKDIR /app
 ENV NODE_ENV=production
 
