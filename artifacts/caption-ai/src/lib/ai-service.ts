@@ -15,7 +15,6 @@ export interface AnalyzeResult {
   topic: string;
   tier: '일반' | '중요' | '핵심' | '긴급';
   keywords: string[];
-  topicChanged: boolean;
 }
 
 export interface SummarizeResult {

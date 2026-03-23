@@ -95,7 +95,6 @@ export default function Home() {
             aiLoading: false,
             displayText: result.simpleSummary !== text ? result.simpleSummary : t.originalText,
             aiKeywords: result.keywords,
-            topicChanged: result.topicChanged,
             medical_terms: result.medical_terms,
             sentiment: result.sentiment,
             suggested_replies: result.suggested_replies,
@@ -139,12 +138,15 @@ export default function Home() {
   const { isListening, status, errorMsg, startListening, stopListening } = useSpeechRecognition(
     (text, isFinal) => {
       if (isFinal) {
-        const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true };
+        const processed: ProcessedTranscript = { ...processTranscript(text), aiLoading: true, role: 'doctor' };
         const currentSessionId = sessionIdRef.current;
         setTranscripts(prev => {
           const next = [...prev, processed];
           scheduleSummary(next);
-          const contextTexts = prev.slice(-4).map(t => t.displayText ?? t.originalText);
+          const contextTexts = prev.slice(-4).map(t => {
+            const roleLabel = t.role === 'patient' ? '환자' : '의사';
+            return roleLabel + ': ' + (t.displayText ?? t.originalText);
+          });
           runAIAnalysis(processed.id, text, contextTexts, currentSessionId, localeRef.current);
           return next;
         });
@@ -247,7 +249,9 @@ export default function Home() {
 
     const id = `demo-${demoStep}-${Date.now()}`;
     const ts = new Date();
-    const full: ProcessedTranscript = { id, timestamp: ts, ...transcript };
+    const prevEntry = demoStep > 0 ? DEMO_SCRIPT[demoStep - 1] : null;
+    const inferredRole: 'doctor' | 'patient' = prevEntry?.waitForReply === true ? 'patient' : 'doctor';
+    const full: ProcessedTranscript = { id, timestamp: ts, ...transcript, role: transcript.role ?? inferredRole };
     setTranscripts(prev => [...prev, full]);
 
     if (terms) {
@@ -287,6 +291,24 @@ export default function Home() {
     }, 800);
     demoTimersRef.current.push(tid);
   }, [isDemoMode, demoWaitingForReply]);
+
+  const handlePatientReply = useCallback((text: string) => {
+    const patientEntry: ProcessedTranscript = {
+      id: crypto.randomUUID(),
+      originalText: text,
+      displayText: text,
+      score: 0,
+      tier: '일반',
+      keywordsFound: [],
+      segments: [{ text, isKeyword: false }],
+      timestamp: new Date(),
+      role: 'patient',
+      aiLoading: false,
+    };
+    setTranscripts(prev => [...prev, patientEntry]);
+    setLastSpeaking(text);
+    setSuggestedReplies([]);
+  }, []);
 
   const handleClear = () => {
     stopDemo();
@@ -753,7 +775,7 @@ export default function Home() {
         <QuickReplyBar
           replies={suggestedReplies}
           isLoading={isAiLoading && suggestedReplies.length === 0}
-          onReply={isDemoMode ? handleDemoReply : undefined}
+          onReply={isDemoMode ? handleDemoReply : handlePatientReply}
         />
       </div>
 

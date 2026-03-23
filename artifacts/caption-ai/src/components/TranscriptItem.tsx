@@ -36,8 +36,10 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
   const mainText = data.displayText ?? data.originalText;
   const hasTerms = (data.medical_terms?.length ?? 0) > 0;
 
+  const isPatient = data.role === 'patient';
+
   return (
-    <div className="w-full">
+    <div className={cn("w-full flex", isPatient ? "justify-end" : "justify-start")}>
       <motion.div
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -48,7 +50,10 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
         aria-pressed={!isInterim ? isSelected : undefined}
         aria-label={!isInterim ? `${t('transcript.block')}: ${mainText}${isSelected ? ` (${t('transcript.selected')})` : ''}` : undefined}
         className={cn(
-          "relative w-full p-4 rounded-2xl border border-border transition-all duration-200 bg-card",
+          "relative p-4 rounded-2xl border transition-all duration-200",
+          isPatient
+            ? "w-[85%] bg-primary/8 border-primary/25 text-right"
+            : "w-full bg-card border-border",
           isInterim ? "opacity-60" : "",
           !isInterim && "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
           isSelected
@@ -56,7 +61,12 @@ export function TranscriptItem({ data, isInterim = false, isSelected = false, on
             : !isInterim && "hover:shadow-md hover:border-primary/20 hover:ring-1 hover:ring-primary/20"
         )}
       >
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <div className={cn("flex items-center gap-2 mb-2 flex-wrap", isPatient && "justify-end")}>
+          {isPatient && !isInterim && (
+            <span className="text-xs font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 order-last">
+              {locale === 'ko' ? '환자 답변' : 'Patient'}
+            </span>
+          )}
           {data.aiLoading && !isInterim && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground" aria-label={t('transcript.ai')}>
               <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />

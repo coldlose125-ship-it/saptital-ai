@@ -25,8 +25,8 @@ export interface ProcessedTranscript {
   aiLoading?: boolean;
   displayText?: string;
   aiKeywords?: string[];
+  role?: 'doctor' | 'patient';
   isSmallTalk?: boolean;
-  topicChanged?: boolean;
   // Medical-specific fields
   medical_terms?: { term: string; explanation: string }[];
   sentiment?: 'positive' | 'neutral' | 'negative';

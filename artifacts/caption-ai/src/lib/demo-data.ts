@@ -28,7 +28,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '일반',
       aiKeywords: ['문진', '증상'],
       sentiment: 'neutral',
-      topicChanged: false,
+
       medical_terms: [],
       suggested_replies: ['두통과 메스꺼움이 있습니다', '열이 나고 몸이 무겁습니다', '가슴이 두근거리고 숨이 차요'],
     },
@@ -41,7 +41,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '일반',
       aiKeywords: ['consultation', 'symptoms'],
       sentiment: 'neutral',
-      topicChanged: false,
+
       medical_terms: [],
       suggested_replies: ['I have a headache and feel nauseous', 'I have a fever and feel tired', 'My heart is racing and I am short of breath'],
     },
@@ -62,7 +62,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '핵심',
       aiKeywords: ['두통', '메스꺼움', '어지럼증'],
       sentiment: 'negative',
-      topicChanged: true,
+
       medical_terms: [
         { term: '오심', explanation: '메스꺼움을 의학 용어로 표현한 것으로, 구역질이 날 것 같은 불쾌한 느낌' },
         { term: '현훈', explanation: '어지럼증의 의학 용어. 주변이나 자신이 빙빙 도는 것 같은 느낌' },
@@ -78,7 +78,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '핵심',
       aiKeywords: ['headache', 'nausea', 'dizziness'],
       sentiment: 'negative',
-      topicChanged: true,
+
       medical_terms: [
         { term: 'Nausea', explanation: 'An uncomfortable feeling of needing to vomit; queasiness.' },
         { term: 'Vertigo', explanation: 'A type of dizziness where you feel as if everything is spinning around you.' },
@@ -110,7 +110,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '일반',
       aiKeywords: ['혈압', '고혈압', '가족력'],
       sentiment: 'neutral',
-      topicChanged: true,
+
       medical_terms: [
         { term: '가족력', explanation: '혈연 관계 가족 중에 특정 질병을 가진 사람이 있는 경우' },
       ],
@@ -125,7 +125,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '일반',
       aiKeywords: ['blood pressure', 'hypertension', 'family history'],
       sentiment: 'neutral',
-      topicChanged: true,
+
       medical_terms: [
         { term: 'Family History', explanation: 'A record of diseases or conditions that exist in close blood relatives.' },
       ],
@@ -156,7 +156,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '중요',
       aiKeywords: ['가족력', '항고혈압제', '고혈압'],
       sentiment: 'negative',
-      topicChanged: false,
+
       medical_terms: [
         { term: '항고혈압제', explanation: '혈압을 낮추기 위해 사용하는 약물의 총칭. 혈압약이라고도 함' },
       ],
@@ -171,7 +171,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '중요',
       aiKeywords: ['antihypertensive', 'hypertension', 'family history'],
       sentiment: 'negative',
-      topicChanged: false,
+
       medical_terms: [
         { term: 'Antihypertensive', explanation: 'Medication used to lower blood pressure, commonly called blood pressure pills.' },
       ],
@@ -200,7 +200,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '중요',
       aiKeywords: ['심전도', '부정맥', '심계항진'],
       sentiment: 'neutral',
-      topicChanged: true,
+
       medical_terms: [
         { term: '심전도(ECG)', explanation: '심장의 전기 활동을 그래프로 기록하는 검사. 부정맥, 심근경색 등 진단에 사용' },
         { term: '심계항진', explanation: '가슴이 두근거리거나 심장 박동이 강하게 느껴지는 증상' },
@@ -217,7 +217,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '중요',
       aiKeywords: ['ECG', 'arrhythmia', 'palpitations'],
       sentiment: 'neutral',
-      topicChanged: true,
+
       medical_terms: [
         { term: 'ECG (Electrocardiogram)', explanation: 'A test that records the electrical activity of the heart, used to detect arrhythmia and heart attacks.' },
         { term: 'Palpitations', explanation: 'An awareness of your heart beating rapidly, strongly, or irregularly.' },
@@ -254,7 +254,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '핵심',
       aiKeywords: ['빈맥', '호흡곤란', '심장'],
       sentiment: 'negative',
-      topicChanged: false,
+
       medical_terms: [
         { term: '빈맥', explanation: '분당 100회 이상의 빠른 심박수 상태' },
         { term: '호흡곤란', explanation: '숨쉬기가 어렵거나 숨이 차는 증상. 심장 또는 폐 질환과 관련될 수 있음' },
@@ -270,7 +270,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '핵심',
       aiKeywords: ['tachycardia', 'dyspnea', 'heart'],
       sentiment: 'negative',
-      topicChanged: false,
+
       medical_terms: [
         { term: 'Tachycardia', explanation: 'A heart rate exceeding 100 beats per minute.' },
         { term: 'Dyspnea', explanation: 'Difficulty breathing or shortness of breath; may be cardiac or pulmonary in origin.' },
@@ -302,7 +302,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '긴급',
       aiKeywords: ['뇌CT', 'MRI', '뇌혈관질환', '뇌졸중'],
       sentiment: 'negative',
-      topicChanged: true,
+
       medical_terms: [
         { term: '뇌졸중', explanation: '뇌혈관이 막히거나(뇌경색) 터져(뇌출혈) 뇌 기능이 손상되는 응급 질환' },
         { term: '뇌출혈', explanation: '뇌 안의 혈관이 파열되어 뇌 조직에 출혈이 발생하는 상태' },
@@ -319,7 +319,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '긴급',
       aiKeywords: ['Brain CT', 'MRI', 'stroke', 'cerebrovascular'],
       sentiment: 'negative',
-      topicChanged: true,
+
       medical_terms: [
         { term: 'Stroke', explanation: 'Brain damage caused by a blocked or ruptured blood vessel in the brain.' },
         { term: 'Cerebral Hemorrhage', explanation: 'Bleeding inside the brain from a ruptured blood vessel.' },
@@ -356,7 +356,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '중요',
       aiKeywords: ['처방', '진통제', 'NSAIDs', '항고혈압제'],
       sentiment: 'neutral',
-      topicChanged: true,
+
       medical_terms: [
         { term: 'NSAIDs', explanation: '비스테로이드성 소염진통제. 통증, 발열, 염증 완화에 사용되는 약물군' },
       ],
@@ -371,7 +371,7 @@ export const DEMO_SCRIPT: DemoEntry[] = [
       aiTier: '중요',
       aiKeywords: ['prescription', 'NSAIDs', 'antihypertensive'],
       sentiment: 'neutral',
-      topicChanged: true,
+
       medical_terms: [
         { term: 'NSAIDs', explanation: 'Non-steroidal anti-inflammatory drugs used for pain relief, fever, and inflammation.' },
       ],
