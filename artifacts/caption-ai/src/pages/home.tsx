@@ -12,9 +12,10 @@ import { QuickReplyBar } from '@/components/QuickReplyBar';
 import { ExportModal } from '@/components/ExportModal';
 import { useSettings } from '@/lib/settings-context';
 import { translateStatus, translateFontLabel, translateErrorMsg } from '@/lib/i18n';
+import { DEMO_SCRIPT } from '@/lib/demo-data';
 import {
   Mic, Square, Trash2, AlertCircle, ChevronDown, Stethoscope,
-  Activity, FileText, BookOpen, X, RefreshCw, Moon, Sun, Globe
+  Activity, FileText, BookOpen, X, RefreshCw, Moon, Sun, Globe, Play
 } from 'lucide-react';
 
 const FONT_SIZES = ['text-3xl md:text-4xl', 'text-4xl md:text-5xl', 'text-5xl md:text-6xl'] as const;
@@ -57,12 +58,14 @@ export default function Home() {
   const [errorDismissed, setErrorDismissed] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSummarizedCountRef = useRef(_s?.transcripts?.length ?? 0);
   const sessionStartRef = useRef<Date>(_s?.sessionStart ?? new Date());
   const sessionIdRef = useRef<number>(0);
+  const demoTimersRef = useRef<NodeJS.Timeout[]>([]);
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
@@ -174,7 +177,63 @@ export default function Home() {
     }
   }, [transcripts, interimText, selectedId]);
 
+  const stopDemo = useCallback(() => {
+    demoTimersRef.current.forEach(clearTimeout);
+    demoTimersRef.current = [];
+    setIsDemoMode(false);
+  }, []);
+
+  const startDemo = useCallback(() => {
+    sessionIdRef.current += 1;
+    setTranscripts([]);
+    setInterimText('');
+    setSelectedId(null);
+    setGlobalTerms([]);
+    setGlobalKeywords([]);
+    setSuggestedReplies([]);
+    setLastSpeaking('');
+    lastSummarizedCountRef.current = 0;
+    sessionStartRef.current = new Date();
+    if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+    localStorage.removeItem(STORAGE_KEY);
+    setIsDemoMode(true);
+
+    let cumulative = 0;
+    const timers: NodeJS.Timeout[] = [];
+
+    DEMO_SCRIPT.forEach((entry, idx) => {
+      cumulative += entry.delay;
+      const tid = setTimeout(() => {
+        const id = `demo-${idx}-${Date.now()}`;
+        const ts = new Date();
+        const full: ProcessedTranscript = { id, timestamp: ts, ...entry.transcript };
+        setTranscripts(prev => [...prev, full]);
+        if (entry.globalTerms) {
+          setGlobalTerms(prev => {
+            const merged = [...(entry.globalTerms ?? []), ...prev];
+            const seen = new Set<string>();
+            return merged.filter(t => { if (seen.has(t.term)) return false; seen.add(t.term); return true; }).slice(0, 12);
+          });
+        }
+        if (entry.globalKeywords) {
+          setGlobalKeywords(prev => [...new Set([...(entry.globalKeywords ?? []), ...prev])].slice(0, 8));
+        }
+        if (entry.suggestedReplies) setSuggestedReplies(entry.suggestedReplies);
+        if (entry.transcript.displayText) setLastSpeaking(entry.transcript.displayText);
+
+        if (idx === DEMO_SCRIPT.length - 1) {
+          const endTid = setTimeout(() => setIsDemoMode(false), 2000);
+          demoTimersRef.current.push(endTid);
+        }
+      }, cumulative);
+      timers.push(tid);
+    });
+
+    demoTimersRef.current = timers;
+  }, []);
+
   const handleClear = () => {
+    stopDemo();
     sessionIdRef.current += 1;
     setConfirmClear(false);
     setTranscripts([]);
@@ -249,6 +308,21 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+            {/* Demo button */}
+            <button
+              onClick={isDemoMode ? stopDemo : startDemo}
+              disabled={isListening}
+              aria-label={isDemoMode ? t('demo.stop') : t('demo.button')}
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-2.5 rounded-xl transition-colors text-xs font-bold disabled:opacity-50 ${
+                isDemoMode
+                  ? 'bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-800/40 dark:text-amber-400'
+                  : 'bg-secondary hover:bg-muted text-secondary-foreground'
+              }`}
+            >
+              <Play className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">{isDemoMode ? t('demo.stop') : t('demo.button')}</span>
+            </button>
+
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
@@ -369,6 +443,29 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {/* Demo mode banner */}
+        <AnimatePresence>
+          {isDemoMode && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-amber-400/90 dark:bg-amber-600/80 text-amber-900 dark:text-amber-100 text-xs font-semibold text-center py-1.5 px-4 flex items-center justify-center gap-2"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="relative flex h-2 w-2" aria-hidden="true">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-700 opacity-60" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-800 dark:bg-amber-200" />
+              </span>
+              {t('demo.banner')}
+              <button onClick={stopDemo} className="ml-2 underline underline-offset-2 hover:no-underline" aria-label={t('demo.stop')}>
+                {t('demo.stop')}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Storage warning banner */}
         <AnimatePresence>

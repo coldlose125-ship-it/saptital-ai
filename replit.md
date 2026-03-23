@@ -73,11 +73,17 @@ artifacts/
 
 ## Deployment
 
-- **Type**: Reserved VM (no sleep mode)
+### Replit (Reserved VM)
 - **Build**: `BASE_PATH=/ pnpm --filter @workspace/caption-ai run build && pnpm --filter @workspace/api-server run build`
 - **Run**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
 - **Production**: Single Express server serves both API routes (`/api/*`) and built React frontend via `express.static`
 - Express 5 requires `/{*splat}` wildcard syntax for catch-all routes
+
+### Koyeb (Docker)
+- **Dockerfile** at repo root — multi-stage build (deps → build → runner)
+- **ENV**: `PORT=8080` (default); `AI_INTEGRATIONS_GEMINI_API_KEY` + `AI_INTEGRATIONS_GEMINI_BASE_URL` must be set in Koyeb env vars
+- **Build command** inside Docker: `BASE_PATH=/ pnpm --filter @workspace/caption-ai run build` + `pnpm --filter @workspace/api-server run build`
+- **Start command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
 
 ## Environment Variables / Secrets
 

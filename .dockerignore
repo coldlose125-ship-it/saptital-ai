@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+**/.git
+**/dist
+artifacts/mockup-sandbox
+.local
+attached_assets
+*.log
+.env*

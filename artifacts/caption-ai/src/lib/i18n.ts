@@ -163,6 +163,9 @@ const translations = {
   'tier.normal': { ko: '일반', en: 'Normal' },
   'settings.theme': { ko: '테마', en: 'Theme' },
   'settings.lang': { ko: '언어', en: 'Language' },
+  'demo.button': { ko: '데모', en: 'Demo' },
+  'demo.stop': { ko: '데모 종료', en: 'Stop Demo' },
+  'demo.banner': { ko: '데모 모드 — 실제 마이크 없이 진료 대화를 재생 중입니다', en: 'Demo Mode — playing a simulated medical consultation without a microphone' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
