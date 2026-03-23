@@ -23,14 +23,14 @@ export interface SummarizeResult {
   keywords: string[];
 }
 
-export async function analyzeText(text: string, context?: string[]): Promise<AnalyzeResult | null> {
+export async function analyzeText(text: string, context?: string[], locale?: string): Promise<AnalyzeResult | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const res = await fetch(`${BASE}/ai/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, context }),
+      body: JSON.stringify({ text, context, locale }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -42,14 +42,14 @@ export async function analyzeText(text: string, context?: string[]): Promise<Ana
   }
 }
 
-export async function summarizeTexts(transcripts: string[]): Promise<SummarizeResult | null> {
+export async function summarizeTexts(transcripts: string[], locale?: string): Promise<SummarizeResult | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const res = await fetch(`${BASE}/ai/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcripts }),
+      body: JSON.stringify({ transcripts, locale }),
       signal: controller.signal,
     });
     clearTimeout(timeout);

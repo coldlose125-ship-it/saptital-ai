@@ -59,6 +59,8 @@ export default function Home() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoStep, setDemoStep] = useState(-1);
+  const [demoWaitingForReply, setDemoWaitingForReply] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const summaryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -66,13 +68,16 @@ export default function Home() {
   const sessionStartRef = useRef<Date>(_s?.sessionStart ?? new Date());
   const sessionIdRef = useRef<number>(0);
   const demoTimersRef = useRef<NodeJS.Timeout[]>([]);
+  // locale ref: 데모 effect 내에서 항상 최신 locale 참조
+  const localeRef = useRef(locale);
+  useEffect(() => { localeRef.current = locale; }, [locale]);
 
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
 
   const isAiLoading = useMemo(() => transcripts.some(t => t.aiLoading), [transcripts]);
 
-  const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[], sessionId: number) => {
-    const result = await analyzeText(text, contextTexts);
+  const runAIAnalysis = useCallback(async (id: string, text: string, contextTexts: string[], sessionId: number, localeArg: string) => {
+    const result = await analyzeText(text, contextTexts, localeArg);
 
     if (sessionIdRef.current !== sessionId) return;
 
@@ -140,7 +145,7 @@ export default function Home() {
           const next = [...prev, processed];
           scheduleSummary(next);
           const contextTexts = prev.slice(-4).map(t => t.displayText ?? t.originalText);
-          runAIAnalysis(processed.id, text, contextTexts, currentSessionId);
+          runAIAnalysis(processed.id, text, contextTexts, currentSessionId, localeRef.current);
           return next;
         });
         setInterimText('');
@@ -181,9 +186,13 @@ export default function Home() {
     demoTimersRef.current.forEach(clearTimeout);
     demoTimersRef.current = [];
     setIsDemoMode(false);
+    setDemoStep(-1);
+    setDemoWaitingForReply(false);
   }, []);
 
   const startDemo = useCallback(() => {
+    demoTimersRef.current.forEach(clearTimeout);
+    demoTimersRef.current = [];
     sessionIdRef.current += 1;
     setTranscripts([]);
     setInterimText('');
@@ -192,45 +201,81 @@ export default function Home() {
     setGlobalKeywords([]);
     setSuggestedReplies([]);
     setLastSpeaking('');
+    setDemoWaitingForReply(false);
     lastSummarizedCountRef.current = 0;
     sessionStartRef.current = new Date();
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
     localStorage.removeItem(STORAGE_KEY);
     setIsDemoMode(true);
-
-    let cumulative = 0;
-    const timers: NodeJS.Timeout[] = [];
-
-    DEMO_SCRIPT.forEach((entry, idx) => {
-      cumulative += entry.delay;
-      const tid = setTimeout(() => {
-        const id = `demo-${idx}-${Date.now()}`;
-        const ts = new Date();
-        const full: ProcessedTranscript = { id, timestamp: ts, ...entry.transcript };
-        setTranscripts(prev => [...prev, full]);
-        if (entry.globalTerms) {
-          setGlobalTerms(prev => {
-            const merged = [...(entry.globalTerms ?? []), ...prev];
-            const seen = new Set<string>();
-            return merged.filter(t => { if (seen.has(t.term)) return false; seen.add(t.term); return true; }).slice(0, 12);
-          });
-        }
-        if (entry.globalKeywords) {
-          setGlobalKeywords(prev => [...new Set([...(entry.globalKeywords ?? []), ...prev])].slice(0, 8));
-        }
-        if (entry.suggestedReplies) setSuggestedReplies(entry.suggestedReplies);
-        if (entry.transcript.displayText) setLastSpeaking(entry.transcript.displayText);
-
-        if (idx === DEMO_SCRIPT.length - 1) {
-          const endTid = setTimeout(() => setIsDemoMode(false), 2000);
-          demoTimersRef.current.push(endTid);
-        }
-      }, cumulative);
-      timers.push(tid);
-    });
-
-    demoTimersRef.current = timers;
+    setDemoStep(0);
   }, []);
+
+  // 데모 스텝 effect: 각 스텝 진입 시 해당 엔트리를 표시
+  useEffect(() => {
+    if (!isDemoMode || demoStep < 0) return;
+    if (demoStep >= DEMO_SCRIPT.length) {
+      const tid = setTimeout(() => {
+        setIsDemoMode(false);
+        setDemoStep(-1);
+      }, 1000);
+      demoTimersRef.current.push(tid);
+      return;
+    }
+
+    const entry = DEMO_SCRIPT[demoStep];
+    const currentLocale = localeRef.current;
+    const transcript = currentLocale === 'en' && entry.transcriptEn
+      ? entry.transcriptEn
+      : entry.transcript;
+    const terms = currentLocale === 'en' && entry.globalTermsEn
+      ? entry.globalTermsEn
+      : entry.globalTerms;
+    const keywords = currentLocale === 'en' && entry.globalKeywordsEn
+      ? entry.globalKeywordsEn
+      : entry.globalKeywords;
+
+    const id = `demo-${demoStep}-${Date.now()}`;
+    const ts = new Date();
+    const full: ProcessedTranscript = { id, timestamp: ts, ...transcript };
+    setTranscripts(prev => [...prev, full]);
+
+    if (terms) {
+      setGlobalTerms(prev => {
+        const merged = [...terms, ...prev];
+        const seen = new Set<string>();
+        return merged.filter(t => { if (seen.has(t.term)) return false; seen.add(t.term); return true; }).slice(0, 12);
+      });
+    }
+    if (keywords) {
+      setGlobalKeywords(prev => [...new Set([...keywords, ...prev])].slice(0, 8));
+    }
+    if (transcript.displayText) setLastSpeaking(transcript.displayText);
+
+    if (entry.waitForReply) {
+      const replies = currentLocale === 'en' && entry.suggestedRepliesEn
+        ? entry.suggestedRepliesEn
+        : (entry.suggestedReplies ?? []);
+      setSuggestedReplies(replies);
+      setDemoWaitingForReply(true);
+    } else {
+      setSuggestedReplies([]);
+      const tid = setTimeout(() => {
+        setDemoStep(prev => prev + 1);
+      }, entry.delay || 1500);
+      demoTimersRef.current.push(tid);
+    }
+  }, [demoStep, isDemoMode]);
+
+  // 환자가 빠른 답변 버튼을 클릭했을 때 다음 스텝으로 진행
+  const handleDemoReply = useCallback((_text: string) => {
+    if (!isDemoMode || !demoWaitingForReply) return;
+    setDemoWaitingForReply(false);
+    setSuggestedReplies([]);
+    const tid = setTimeout(() => {
+      setDemoStep(prev => prev + 1);
+    }, 800);
+    demoTimersRef.current.push(tid);
+  }, [isDemoMode, demoWaitingForReply]);
 
   const handleClear = () => {
     stopDemo();
@@ -690,7 +735,11 @@ export default function Home() {
         </div>
 
         {/* Quick reply buttons */}
-        <QuickReplyBar replies={suggestedReplies} isLoading={isAiLoading && suggestedReplies.length === 0} />
+        <QuickReplyBar
+          replies={suggestedReplies}
+          isLoading={isAiLoading && suggestedReplies.length === 0}
+          onReply={isDemoMode ? handleDemoReply : undefined}
+        />
       </div>
 
       {/* Mobile terms drawer */}
