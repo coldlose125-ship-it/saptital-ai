@@ -2,7 +2,7 @@ import React from 'react';
 import { ProcessedTranscript } from '@/lib/caption-engine';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { Clock, Edit2, Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { Clock, Edit2, Loader2, Sparkles } from 'lucide-react';
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useSettings } from '@/lib/settings-context';
@@ -32,28 +32,12 @@ const TIER_BADGE: Record<string, string> = {
 
 export function TranscriptItem({ data, isInterim = false, isSelected = false, onClick, fontSizeLevel = 0 }: TranscriptItemProps) {
   const { t, locale } = useSettings();
-  const showTopicDivider = data.topicChanged === true && !isInterim;
   const activeTier = data.aiTier ?? data.tier;
   const mainText = data.displayText ?? data.originalText;
   const hasTerms = (data.medical_terms?.length ?? 0) > 0;
 
   return (
     <div className="w-full">
-      {showTopicDivider && (
-        <motion.div
-          initial={{ opacity: 0, scaleX: 0.6 }}
-          animate={{ opacity: 1, scaleX: 1 }}
-          className="flex items-center gap-2 mb-3 mt-1"
-        >
-          <div className="flex-1 h-px bg-border" />
-          <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full shrink-0">
-            <ArrowRight className="w-3 h-3" />
-            {t('transcript.topic')}
-          </span>
-          <div className="flex-1 h-px bg-border" />
-        </motion.div>
-      )}
-
       <motion.div
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}

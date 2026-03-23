@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Sparkles, Hash, Loader2, MousePointerClick, ArrowLeft } from 'lucide-react';
+import { useSettings } from '@/lib/settings-context';
 
 interface SummaryPanelProps {
   summaryText: string;
@@ -19,6 +20,8 @@ export function SummaryPanel({
   selectedTopic,
   onClearSelection,
 }: SummaryPanelProps) {
+  const { t } = useSettings();
+
   return (
     <div className="bg-gradient-to-b from-primary/5 to-transparent border border-primary/10 rounded-2xl p-6 h-full flex flex-col">
       {/* Header */}
@@ -28,7 +31,7 @@ export function SummaryPanel({
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-foreground tracking-tight truncate">
-            {isBlockSelected ? 'AI 분석 — 선택된 블록' : '실시간 AI 요약'}
+            {isBlockSelected ? t('summary.title.block') : t('summary.title.live')}
           </h2>
           {isBlockSelected && selectedTopic && (
             <p className="text-xs text-muted-foreground font-medium truncate">{selectedTopic}</p>
@@ -40,10 +43,10 @@ export function SummaryPanel({
             <button
               onClick={onClearSelection}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted"
-              title="전체 요약으로 돌아가기"
+              title={t('summary.btn.back.title')}
             >
               <ArrowLeft className="w-3 h-3" />
-              전체
+              {t('terms.back')}
             </button>
           )}
         </div>
@@ -54,7 +57,7 @@ export function SummaryPanel({
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
             <FileText className="w-4 h-4" />
-            {isBlockSelected ? '블록 내용 (AI 정제)' : '쉬운 요약'}
+            {isBlockSelected ? t('summary.section.block') : t('summary.section.live')}
           </h3>
           <AnimatePresence mode="wait">
             <motion.p
@@ -65,7 +68,7 @@ export function SummaryPanel({
               className="text-foreground leading-relaxed font-medium"
             >
               {isLoading && summaryText === '' ? (
-                <span className="text-muted-foreground text-sm">Gemini가 분석 중입니다...</span>
+                <span className="text-muted-foreground text-sm">{t('summary.loading')}</span>
               ) : summaryText}
             </motion.p>
           </AnimatePresence>
@@ -75,7 +78,7 @@ export function SummaryPanel({
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
             <Hash className="w-4 h-4" />
-            핵심 키워드
+            {t('summary.keywords')}
           </h3>
           <div className="flex flex-wrap gap-2">
             <AnimatePresence>
@@ -93,7 +96,7 @@ export function SummaryPanel({
                 ))
               ) : (
                 <span className="text-sm text-muted-foreground bg-white/50 px-3 py-1.5 rounded-lg border border-transparent">
-                  {isLoading ? 'AI가 키워드를 추출 중...' : '아직 추출된 키워드가 없습니다.'}
+                  {isLoading ? t('summary.keywords.loading') : t('summary.keywords.empty')}
                 </span>
               )}
             </AnimatePresence>
@@ -105,7 +108,7 @@ export function SummaryPanel({
           <div className="mt-auto pt-4 border-t border-border/40">
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <MousePointerClick className="w-3.5 h-3.5 shrink-0" />
-              자막 블록을 클릭하면 해당 내용의 AI 분석을 볼 수 있습니다
+              {t('summary.hint')}
             </p>
           </div>
         )}

@@ -166,6 +166,17 @@ const translations = {
   'demo.button': { ko: '데모', en: 'Demo' },
   'demo.stop': { ko: '데모 종료', en: 'Stop Demo' },
   'demo.banner': { ko: '데모 모드 — 실제 마이크 없이 진료 대화를 재생 중입니다', en: 'Demo Mode — playing a simulated medical consultation without a microphone' },
+  // SummaryPanel strings
+  'summary.title.block': { ko: 'AI 분석 \u2014 선택된 블록', en: 'AI Analysis \u2014 Selected Block' },
+  'summary.title.live': { ko: '실시간 AI 요약', en: 'Real-time AI Summary' },
+  'summary.btn.back.title': { ko: '전체 요약으로 돌아가기', en: 'Back to full summary' },
+  'summary.section.block': { ko: '블록 내용 (AI 정제)', en: 'Block Content (AI Refined)' },
+  'summary.section.live': { ko: '쉬운 요약', en: 'Easy Summary' },
+  'summary.loading': { ko: 'Gemini가 분석 중입니다...', en: 'Gemini is analyzing...' },
+  'summary.keywords': { ko: '핵심 키워드', en: 'Key Keywords' },
+  'summary.keywords.loading': { ko: 'AI가 키워드를 추출 중...', en: 'AI is extracting keywords...' },
+  'summary.keywords.empty': { ko: '아직 추출된 키워드가 없습니다.', en: 'No keywords extracted yet.' },
+  'summary.hint': { ko: '자막 블록을 클릭하면 해당 내용의 AI 분석을 볼 수 있습니다', en: 'Click a caption block to see its AI analysis' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
