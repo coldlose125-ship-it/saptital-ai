@@ -247,12 +247,17 @@ export default function Home() {
       ? entry.globalKeywordsEn
       : entry.globalKeywords;
 
-    const id = `demo-${demoStep}-${Date.now()}`;
-    const ts = new Date();
     const prevEntry = demoStep > 0 ? DEMO_SCRIPT[demoStep - 1] : null;
-    const inferredRole: 'doctor' | 'patient' = prevEntry?.waitForReply === true ? 'patient' : 'doctor';
-    const full: ProcessedTranscript = { id, timestamp: ts, ...transcript, role: transcript.role ?? inferredRole };
-    setTranscripts(prev => [...prev, full]);
+    const isPatientStep = prevEntry?.waitForReply === true;
+
+    // 환자 스텝은 handleDemoReply에서 실제 클릭 텍스트로 이미 추가했으므로 스크립트 transcript는 건너뜀
+    if (!isPatientStep) {
+      const id = `demo-${demoStep}-${Date.now()}`;
+      const ts = new Date();
+      const full: ProcessedTranscript = { id, timestamp: ts, ...transcript, role: 'doctor' };
+      setTranscripts(prev => [...prev, full]);
+      if (transcript.displayText) setLastSpeaking(transcript.displayText);
+    }
 
     if (terms) {
       setGlobalTerms(prev => {
@@ -264,7 +269,6 @@ export default function Home() {
     if (keywords) {
       setGlobalKeywords(prev => [...new Set([...keywords, ...prev])].slice(0, 8));
     }
-    if (transcript.displayText) setLastSpeaking(transcript.displayText);
 
     if (entry.waitForReply) {
       const replies = currentLocale === 'en' && entry.suggestedRepliesEn
@@ -281,9 +285,23 @@ export default function Home() {
     }
   }, [demoStep, isDemoMode]);
 
-  // 환자가 빠른 답변 버튼을 클릭했을 때 다음 스텝으로 진행
-  const handleDemoReply = useCallback((_text: string) => {
+  // 환자가 빠른 답변 버튼을 클릭했을 때: 실제 클릭 텍스트로 patient entry 생성 후 다음 스텝 진행
+  const handleDemoReply = useCallback((text: string) => {
     if (!isDemoMode || !demoWaitingForReply) return;
+    const patientEntry: ProcessedTranscript = {
+      id: crypto.randomUUID(),
+      originalText: text,
+      displayText: text,
+      score: 0,
+      tier: '일반',
+      keywordsFound: [],
+      segments: [{ text, isKeyword: false }],
+      timestamp: new Date(),
+      role: 'patient',
+      aiLoading: false,
+    };
+    setTranscripts(prev => [...prev, patientEntry]);
+    setLastSpeaking(text);
     setDemoWaitingForReply(false);
     setSuggestedReplies([]);
     const tid = setTimeout(() => {

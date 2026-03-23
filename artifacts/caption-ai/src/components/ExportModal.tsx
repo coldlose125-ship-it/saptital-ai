@@ -454,35 +454,7 @@ export function ExportModal({
     win.document.close();
   };
 
-  const handleSave = async () => {
-    const html = buildPrintHtml(transcripts, globalTerms, sessionStart, 'save', locale);
-    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-    const fileName = `Sapital-AI-${format(sessionStart, 'yyyy-MM-dd')}.html`;
-
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{ description: 'HTML 파일', accept: { 'text/html': ['.html'] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        return;
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return;
-      }
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const handleSave = () => openWindow('save');
 
   const handlePrint = () => openWindow('print');
 
