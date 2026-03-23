@@ -162,8 +162,10 @@ Rules:
         : [],
       topicChanged: Boolean((parsed as any).topicChanged),
     });
-  } catch {
-    res.status(500).json({ error: "AI analysis failed" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[AI analyze]", msg);
+    res.status(500).json({ error: "AI analysis failed", detail: msg });
   }
 });
 
@@ -232,8 +234,10 @@ keywords: \ucd5c\ub300 5\uac1c \ud575\uc2ec \uc758\ub8cc \ub2e8\uc5b4`;
         ? (parsed as any).keywords.slice(0, 5)
         : [],
     });
-  } catch {
-    res.status(500).json({ error: "AI summarize failed" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[AI summarize]", msg);
+    res.status(500).json({ error: "AI summarize failed", detail: msg });
   }
 });
 

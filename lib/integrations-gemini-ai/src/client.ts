@@ -8,4 +8,8 @@ if (!process.env.AI_INTEGRATIONS_GEMINI_API_KEY) {
 
 export const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+  httpOptions: {
+    baseUrl: "https://generativelanguage.googleapis.com",
+    apiVersion: "v1beta",
+  },
 });
